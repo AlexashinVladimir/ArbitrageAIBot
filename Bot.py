@@ -105,5 +105,47 @@ async def got_payment(message: Message):
         telegram_charge_id=message.successful_payment.telegram_payment_charge_id,
         provider_charge_id=message.successful_payment.provider_payment_charge_id
     )
-    course = await db.get_course(course
+    course = await db.get_course(course_id)
+    await message.answer(f"✅ Оплата принята! Ссылка на курс: {course[5]}")
+
+# --- Рекомендации ИИ ---
+@dp.message(F.text == "💡 Рекомендации ИИ")
+async def ai_recommendation(message: Message):
+    comment = random.choice(texts.AI_RECOMMENDATION)
+    await message.answer(comment)
+
+# --- Админ-панель ---
+@dp.message(F.text == "🛠️ Админ-панель")
+async def admin_panel(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("Доступ запрещен")
+        return
+    await message.answer(texts.ADMIN_TEXT, reply_markup=kb.admin_kb())
+    await state.clear()
+
+# --- Добавление категории ---
+@dp.message(F.text == "➕ Добавить категорию")
+async def start_add_category(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.answer("Введите название новой категории:")
+    await state.set_state(AdminStates.add_category)
+
+@dp.message(AdminStates.add_category)
+async def save_category(message: Message, state: FSMContext):
+    await db.add_category(message.text)
+    await message.answer("Категория добавлена ✅", reply_markup=kb.admin_kb())
+    await state.clear()
+
+# --- Главное меню ---
+@dp.message(F.text == "◀️ В главное меню")
+async def back_to_main(message: Message):
+    await message.answer("Главное меню:", reply_markup=kb.main_menu_kb())
+
+# --- Запуск Polling ---
+if __name__ == "__main__":
+    import asyncio
+    print("Бот запущен на polling...")
+    asyncio.run(dp.start_polling(bot))
+
 
