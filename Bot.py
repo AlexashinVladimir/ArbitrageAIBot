@@ -187,10 +187,11 @@ async def admin_manage_courses(message: types.Message):
         cur = await conn.execute("SELECT * FROM courses ORDER BY id")
         rows = await cur.fetchall()
         courses = [dict(r) for r in rows]
+
     if not courses:
-        await message.answer("Курсов пока нет.")
-        return
-    await message.answer("Список курсов:", reply_markup=kb.admin_courses_inline(courses))
+        await message.answer("Курсов пока нет.", reply_markup=kb.admin_courses_inline([]))
+    else:
+        await message.answer("Список курсов:", reply_markup=kb.admin_courses_inline(courses))
 
 
 # -------------------- Admin: Категории --------------------
@@ -373,6 +374,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
