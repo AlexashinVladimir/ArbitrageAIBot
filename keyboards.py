@@ -28,7 +28,7 @@ def admin_kb():
 def category_kb(categories: list):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=name, callback_data=f"category:{cat_id}")] for cat_id, name, is_active in categories
+            [InlineKeyboardButton(text=name, callback_data=f"category:{cat_id}")] for cat_id, name, is_active in categories if is_active
         ]
     )
 
@@ -36,7 +36,7 @@ def category_kb(categories: list):
 def course_kb(courses: list):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=f"{c[2]} - {c[4]} ₽", callback_data=f"course:{c[0]}")] for c in courses
+            [InlineKeyboardButton(text=f"{c[2]} - {c[4]} ₽", callback_data=f"course:{c[0]}")] for c in courses if c[6]
         ]
     )
 
@@ -63,4 +63,7 @@ def manage_courses_kb(courses: list):
             [InlineKeyboardButton(text=f"{c[2]} {'✅' if c[6] else '❌'}", callback_data=f"toggle_course:{c[0]}")] for c in courses
         ]
     )
+
+    )
+
 
