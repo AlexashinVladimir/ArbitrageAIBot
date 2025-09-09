@@ -1,5 +1,5 @@
 """
-Bot.py — основной файл с логикой Telegram-бота.
+Bot.py — основной файл с логикой Telegram-бота (адаптирован под Aiogram 3.6).
 """
 
 import asyncio
@@ -23,7 +23,8 @@ TOKEN = os.getenv("BOT_TOKEN")
 PAYMENTS_PROVIDER_TOKEN = os.getenv("PAYMENTS_PROVIDER_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-bot = Bot(token=TOKEN, default=types.DefaultBotProperties(parse_mode=ParseMode.HTML))
+# ✅ Aiogram 3.6: используем parse_mode прямо в Bot
+bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 
 DB_PATH = db.DB_PATH
@@ -199,7 +200,7 @@ async def delete_category(callback: types.CallbackQuery):
 
 # ---------------- Управление курсами ----------------
 @dp.message(F.text == "Управление курсами")
-async def admin_manage_courses(message: types.Message):
+async def admin_manage_courses(message: Message):
     if message.from_user.id != ADMIN_ID:
         await message.answer(texts.ADMIN_ONLY)
         return
@@ -318,6 +319,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
