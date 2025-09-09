@@ -1,68 +1,57 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+import db
 
-# Главное меню
+# --- Главное меню ---
 def main_menu_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📚 Курсы")],
-            [KeyboardButton(text="💡 Рекомендации ИИ")],
-            [KeyboardButton(text="🛠️ Админ-панель")]
-        ],
-        resize_keyboard=True
-    )
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(KeyboardButton("📚 Курсы"))
+    kb.add(KeyboardButton("💡 Рекомендации ИИ"))
+    kb.add(KeyboardButton("🛠️ Админ-панель"))
+    return kb
 
-# Админ-панель
+# --- Категории для пользователя ---
+def category_kb(categories):
+    kb = InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        if cat[2]:  # активная категория
+            kb.insert(InlineKeyboardButton(text=cat[1], callback_data=f"user_cat:{cat[0]}"))
+    return kb
+
+# --- Кнопки курсов ---
+def course_kb(courses):
+    kb = InlineKeyboardMarkup(row_width=1)
+    for course in courses:
+        kb.add(InlineKeyboardButton(text=course[2], callback_data=f"course:{course[0]}"))
+    return kb
+
+# --- Кнопка оплатить ---
+def pay_kb(course_id):
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton(text="💳 Оплатить", callback_data=f"pay:{course_id}"))
+    return kb
+
+# --- Админ панель ---
 def admin_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="➕ Добавить категорию")],
-            [KeyboardButton(text="📂 Управление категориями")],
-            [KeyboardButton(text="➕ Добавить курс")],
-            [KeyboardButton(text="📚 Управление курсами")],
-            [KeyboardButton(text="◀️ В главное меню")]
-        ],
-        resize_keyboard=True
-    )
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(KeyboardButton("📂 Управление категориями"))
+    kb.add(KeyboardButton("📚 Управление курсами"))
+    kb.add(KeyboardButton("➕ Добавить категорию"))
+    kb.add(KeyboardButton("➕ Добавить курс"))
+    kb.add(KeyboardButton("◀️ В главное меню"))
+    return kb
 
-# Inline кнопки категорий
-def category_kb(categories: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=name, callback_data=f"category:{cat_id}")] for cat_id, name, is_active in categories if is_active
-        ]
-    )
+# --- Управление категориями (админ) ---
+def manage_categories_kb(categories):
+    kb = InlineKeyboardMarkup(row_width=2)
+    for cat in categories:
+        text = f"{cat[1]} {'✅' if cat[2] else '❌'}"
+        kb.insert(InlineKeyboardButton(text=text, callback_data=f"toggle_cat:{cat[0]}"))
+    return kb
 
-# Inline кнопки курсов
-def course_kb(courses: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"{c[2]} - {c[4]} ₽", callback_data=f"course:{c[0]}")] for c in courses if c[6]
-        ]
-    )
-
-# Кнопка оплаты
-def pay_kb(course_id: int):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить курс", callback_data=f"pay:{course_id}")]
-        ]
-    )
-
-# Управление категориями
-def manage_categories_kb(categories: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"{c[1]} {'✅' if c[2] else '❌'}", callback_data=f"toggle_cat:{c[0]}")] for c in categories
-        ]
-    )
-
-# Управление курсами
-def manage_courses_kb(courses: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"{c[2]} {'✅' if c[6] else '❌'}", callback_data=f"toggle_course:{c[0]}")] for c in courses
-        ]
-    )
-
-
-
+# --- Управление курсами (админ) ---
+def manage_courses_kb(courses):
+    kb = InlineKeyboardMarkup(row_width=1)
+    for course in courses:
+        text = f"{course[2]} {'✅' if course[5] else '❌'}"
+        kb.add(InlineKeyboardButton(text=text, callback_data=f"toggle_course:{course[0]}"))
+    return kb
