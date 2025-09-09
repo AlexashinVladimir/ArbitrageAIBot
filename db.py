@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS courses (
     category_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
-    price INTEGER NOT NULL, -- в целых рублях
+    price INTEGER NOT NULL,
     link TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT,
@@ -139,3 +139,4 @@ async def add_purchase(user_id: int, course_id: int, amount: int, currency: str,
             (user_id, course_id, amount, currency, telegram_charge_id, provider_charge_id)
         )
         await db.commit()
+
