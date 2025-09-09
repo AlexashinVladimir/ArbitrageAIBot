@@ -1,4 +1,4 @@
-import os, random
+import os, random, asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, CallbackQuery
 from aiogram.filters import Command
@@ -17,7 +17,6 @@ CURRENCY = os.getenv("CURRENCY", "RUB")
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-import asyncio
 asyncio.run(db.init_db())
 
 # --- Старт и помощь ---
@@ -29,7 +28,7 @@ async def start(message: Message):
 async def help_cmd(message: Message):
     await message.answer(texts.HELP_TEXT)
 
-# --- Курсы для пользователей ---
+# --- Курсы ---
 @dp.message(F.text == "📚 Курсы")
 async def show_categories(message: Message):
     categories = await db.list_categories()
@@ -38,9 +37,8 @@ async def show_categories(message: Message):
         return
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
-# --- Callback для пользователя ---
 @dp.callback_query(lambda c: c.data.startswith("user_cat:"))
-async def choose_category_user(cb: CallbackQuery):
+async def choose_category_user(cb: CallbackQuery, state: FSMContext):
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
     if not courses:
@@ -101,7 +99,7 @@ async def got_payment(message: Message):
 async def ai_recommendation(message: Message):
     await message.answer(random.choice(texts.AI_RECOMMENDATION))
 
-# --- Админ-панель ---
+# --- Админка ---
 @dp.message(F.text == "🛠️ Админ-панель")
 async def admin_panel(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
@@ -163,8 +161,11 @@ async def start_add_course(message: Message, state: FSMContext):
     await message.answer("Выберите категорию для нового курса:", reply_markup=kb.category_kb(categories))
     await state.set_state(states.AdminStates.add_course_category)
 
-@dp.callback_query(lambda c: c.data.startswith("user_cat:"), state=states.AdminStates.add_course_category)
+@dp.callback_query(lambda c: c.data.startswith("user_cat:"))
 async def set_course_category(cb: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state != states.AdminStates.add_course_category:
+        return
     cat_id = int(cb.data.split(":")[1])
     await state.update_data(category_id=cat_id)
     await cb.message.answer("Введите название курса:")
@@ -212,7 +213,7 @@ async def back_to_main(message: Message):
 
 # --- Запуск Polling ---
 if __name__ == "__main__":
-    import asyncio
     print("Бот запущен на polling...")
     asyncio.run(dp.start_polling(bot))
+
 
