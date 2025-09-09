@@ -1,3 +1,7 @@
+"""
+states.py — состояния FSM (Finite State Machine).
+"""
+
 from aiogram.fsm.state import StatesGroup, State
 
 
