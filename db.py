@@ -1,5 +1,5 @@
 import aiosqlite
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 DB_PATH = "courses.db"
 
@@ -72,11 +72,6 @@ async def toggle_category(cat_id: int, path: str = DB_PATH):
         await db.commit()
         return True
 
-async def delete_category(cat_id: int, path: str = DB_PATH):
-    async with aiosqlite.connect(path) as db:
-        await db.execute("DELETE FROM categories WHERE id=?", (cat_id,))
-        await db.commit()
-
 # --- Courses ---
 async def add_course(category_id: int, title: str, description: str, price: int, link: str, path: str = DB_PATH) -> int:
     async with aiosqlite.connect(path) as db:
@@ -91,12 +86,12 @@ async def list_courses_by_category(category_id: int, active_only: bool = True, p
     async with aiosqlite.connect(path) as db:
         if active_only:
             cur = await db.execute(
-                "SELECT id, title, description, price, link, is_active FROM courses WHERE category_id=? AND is_active=1 ORDER BY id",
+                "SELECT id, category_id, title, description, price, link, is_active FROM courses WHERE category_id=? AND is_active=1 ORDER BY id",
                 (category_id,)
             )
         else:
             cur = await db.execute(
-                "SELECT id, title, description, price, link, is_active FROM courses WHERE category_id=? ORDER BY id",
+                "SELECT id, category_id, title, description, price, link, is_active FROM courses WHERE category_id=? ORDER BY id",
                 (category_id,)
             )
         return await cur.fetchall()
@@ -120,11 +115,6 @@ async def toggle_course(course_id: int, path: str = DB_PATH):
         await db.commit()
         return True
 
-async def delete_course(course_id: int, path: str = DB_PATH):
-    async with aiosqlite.connect(path) as db:
-        await db.execute("DELETE FROM courses WHERE id=?", (course_id,))
-        await db.commit()
-
 # --- Purchases ---
 async def add_purchase(user_id: int, course_id: int, amount: int, currency: str,
                        telegram_charge_id: str = None, provider_charge_id: str = None, path: str = DB_PATH):
@@ -134,7 +124,5 @@ async def add_purchase(user_id: int, course_id: int, amount: int, currency: str,
             (user_id, course_id, amount, currency, telegram_charge_id, provider_charge_id)
         )
         await db.commit()
-
-
 
 
