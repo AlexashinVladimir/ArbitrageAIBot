@@ -5,12 +5,9 @@ from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, CallbackQuery
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
-import db
-import keyboards as kb
-import texts
+import db, keyboards as kb, texts, states
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -23,15 +20,6 @@ dp = Dispatcher(storage=MemoryStorage())
 
 import asyncio
 asyncio.run(db.init_db())
-
-# --- FSM ---
-class AdminStates(StatesGroup):
-    add_category = State()
-    add_course_category = State()
-    add_course_title = State()
-    add_course_description = State()
-    add_course_price = State()
-    add_course_link = State()
 
 # --- Старт ---
 @dp.message(Command("start"))
@@ -71,7 +59,6 @@ async def course_details(cb: CallbackQuery):
     text = f"<b>{course[2]}</b>\n{course[3]}\n💰 Цена: {course[4]} ₽\n\n{ai_comment}"
     await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb.pay_kb(course_id))
 
-# --- Оплата ---
 @dp.callback_query(lambda c: c.data and c.data.startswith("pay:"))
 async def pay_course(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
@@ -129,9 +116,9 @@ async def start_add_category(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         return
     await message.answer("Введите название новой категории:")
-    await state.set_state(AdminStates.add_category)
+    await state.set_state(states.AdminStates.add_category)
 
-@dp.message(AdminStates.add_category)
+@dp.message(states.AdminStates.add_category)
 async def save_category(message: Message, state: FSMContext):
     await db.add_category(message.text)
     await message.answer("Категория добавлена ✅", reply_markup=kb.admin_kb())
