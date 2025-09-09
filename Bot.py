@@ -38,13 +38,9 @@ async def show_categories(message: Message):
         return
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
-# --- Callback для пользователя: выбор категории ---
-@dp.callback_query(lambda c: c.data.startswith("category:"))
-async def choose_category_user(cb: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-    # если пользователь в FSM (например админ добавляет курс) — пропускаем
-    if current_state is not None:
-        return
+# --- Callback для пользователя ---
+@dp.callback_query(lambda c: c.data.startswith("user_cat:"))
+async def choose_category_user(cb: CallbackQuery):
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
     if not courses:
@@ -52,7 +48,6 @@ async def choose_category_user(cb: CallbackQuery, state: FSMContext):
         return
     await cb.message.answer("Выберите курс:", reply_markup=kb.course_kb(courses))
 
-# --- Callback для пользователя: выбор курса ---
 @dp.callback_query(lambda c: c.data.startswith("course:"))
 async def course_details(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
@@ -64,7 +59,7 @@ async def course_details(cb: CallbackQuery):
     text = f"<b>{course[2]}</b>\n{course[3]}\n💰 Цена: {course[4]} ₽\n\n{ai_comment}"
     await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb.pay_kb(course_id))
 
-# --- Оплата курса ---
+# --- Оплата ---
 @dp.callback_query(lambda c: c.data.startswith("pay:"))
 async def pay_course(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
@@ -129,7 +124,6 @@ async def toggle_category(cb: CallbackQuery):
     categories = await db.list_categories(active_only=False)
     await cb.message.edit_text("Управление категориями:", reply_markup=kb.manage_categories_kb(categories))
 
-# --- Добавление категории ---
 @dp.message(F.text == "➕ Добавить категорию")
 async def add_category_start(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
@@ -157,9 +151,11 @@ async def toggle_course_cb(cb: CallbackQuery):
     courses = await db.list_courses_by_category(0, active_only=False)
     await cb.message.edit_text("Управление курсами:", reply_markup=kb.manage_courses_kb(courses))
 
-# --- Добавление курса пошагово ---
+# --- Добавление курса ---
 @dp.message(F.text == "➕ Добавить курс")
 async def start_add_course(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
     categories = await db.list_categories()
     if not categories:
         await message.answer("Сначала добавьте категорию")
@@ -167,10 +163,8 @@ async def start_add_course(message: Message, state: FSMContext):
     await message.answer("Выберите категорию для нового курса:", reply_markup=kb.category_kb(categories))
     await state.set_state(states.AdminStates.add_course_category)
 
-@dp.callback_query(states.AdminStates.add_course_category)
+@dp.callback_query(lambda c: c.data.startswith("user_cat:"), state=states.AdminStates.add_course_category)
 async def set_course_category(cb: CallbackQuery, state: FSMContext):
-    if cb.from_user.id != ADMIN_ID:
-        return
     cat_id = int(cb.data.split(":")[1])
     await state.update_data(category_id=cat_id)
     await cb.message.answer("Введите название курса:")
@@ -221,5 +215,4 @@ if __name__ == "__main__":
     import asyncio
     print("Бот запущен на polling...")
     asyncio.run(dp.start_polling(bot))
-
 
