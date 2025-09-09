@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 import db, keyboards as kb, texts, states
 
+# ------------------ Загрузка .env ------------------
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -16,21 +17,21 @@ PAYMENT_TOKEN = os.getenv("PAYMENT_TOKEN")
 bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
 dp = Dispatcher(storage=MemoryStorage())
 
-# Инициализация базы
+# ------------------ Инициализация базы ------------------
 asyncio.run(db.init_db())
 
-# --------------------- Старт ---------------------
+# ------------------ Старт ------------------
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer(texts.START_TEXT, reply_markup=kb.main_menu_kb())
 
-# --------------------- Отмена ---------------------
+# ------------------ Отмена ------------------
 @dp.message(lambda message: message.text == "❌ Отмена")
 async def cancel(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(texts.CANCEL_TEXT, reply_markup=kb.main_menu_kb())
 
-# --------------------- Админ-панель ---------------------
+# ------------------ Админ-панель ------------------
 @dp.message(lambda message: message.text == "🛠️ Админ-панель")
 async def admin_panel(message: types.Message):
     if message.from_user.id != ADMIN_ID:
@@ -38,19 +39,19 @@ async def admin_panel(message: types.Message):
         return
     await message.answer(texts.ADMIN_TEXT, reply_markup=kb.admin_menu_kb())
 
-# --------------------- Добавление категории ---------------------
+# ------------------ Добавление категории ------------------
 @dp.message(lambda message: message.text == "➕ Добавить категорию")
 async def add_category_start(message: types.Message, state: FSMContext):
-    await states.AddCategory.waiting_for_name.set()
+    await states.AddCategory.waiting_name.set()
     await message.answer("Введите название категории:", reply_markup=kb.cancel_kb())
 
-@dp.message(states.AddCategory.waiting_for_name)
+@dp.message(states.AddCategory.waiting_name)
 async def add_category_name(message: types.Message, state: FSMContext):
     await db.add_category(message.text)
     await state.clear()
     await message.answer(f"Категория '{message.text}' добавлена!", reply_markup=kb.main_menu_kb())
 
-# --------------------- Просмотр категорий ---------------------
+# ------------------ Просмотр категорий ------------------
 @dp.message(lambda message: message.text == "📚 Курсы")
 async def show_categories(message: types.Message):
     categories = await db.get_categories()
@@ -59,7 +60,7 @@ async def show_categories(message: types.Message):
         return
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
-# --------------------- Просмотр курсов ---------------------
+# ------------------ Просмотр курсов ------------------
 @dp.callback_query(lambda c: c.data.startswith("user_cat:"))
 async def show_courses(call: types.CallbackQuery):
     cat_id = int(call.data.split(":")[1])
@@ -71,7 +72,7 @@ async def show_courses(call: types.CallbackQuery):
         text = f"<b>{course[2]}</b>\n{course[3]}\n💰 Цена: {course[4]} RUB"
         await call.message.answer(text, reply_markup=kb.pay_kb(course[0]))
 
-# --------------------- Оплата ---------------------
+# ------------------ Оплата ------------------
 @dp.callback_query(lambda c: c.data.startswith("pay:"))
 async def pay_course(call: types.CallbackQuery):
     course_id = int(call.data.split(":")[1])
@@ -97,9 +98,10 @@ async def checkout(pre_checkout: types.PreCheckoutQuery):
 async def successful_payment(message: types.Message):
     await message.answer("✅ Оплата прошла успешно! Курс доступен для обучения.")
 
-# --------------------- Запуск ---------------------
+# ------------------ Запуск ------------------
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
+
 
 
 
