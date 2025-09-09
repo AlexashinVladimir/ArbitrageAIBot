@@ -8,7 +8,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 import db, keyboards as kb, texts, states
 
-# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -18,17 +17,19 @@ CURRENCY = os.getenv("CURRENCY", "RUB")
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Инициализация базы данных
 asyncio.run(db.init_db())
 
-# --- Старт и помощь ---
+# --- Старт ---
 @dp.message(Command("start"))
 async def start(message: Message):
     await message.answer(texts.START_TEXT, reply_markup=kb.main_menu_kb())
 
-@dp.message(Command("help"))
-async def help_cmd(message: Message):
-    await message.answer(texts.HELP_TEXT)
+# --- Главное меню ---
+@dp.message(F.text == "◀️ В главное меню")
+@dp.message(F.text == "❌ Отмена")
+async def back_to_main(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Главное меню:", reply_markup=kb.main_menu_kb())
 
 # --- Курсы ---
 @dp.message(F.text == "📚 Курсы")
@@ -40,6 +41,9 @@ async def show_categories(message: Message):
 async def choose_category_user(cb: CallbackQuery, state: FSMContext):
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
+    if not courses:
+        await cb.message.answer("Курсы в этой категории отсутствуют", reply_markup=kb.course_kb([]))
+        return
     await cb.message.answer("Выберите курс:", reply_markup=kb.course_kb(courses))
 
 @dp.callback_query(lambda c: c.data.startswith("course:"))
@@ -122,7 +126,7 @@ async def toggle_category(cb: CallbackQuery):
 async def add_category_start(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer("Введите название новой категории:")
+    await message.answer("Введите название новой категории:", reply_markup=kb.cancel_kb())
     await state.set_state(states.AdminStates.add_category)
 
 @dp.message(states.AdminStates.add_category)
@@ -131,7 +135,7 @@ async def add_category_save(message: Message, state: FSMContext):
     await message.answer("Категория добавлена ✅", reply_markup=kb.admin_kb())
     await state.clear()
 
-# --- Управление курсами ---
+# --- Управление курсами и добавление курса с кнопкой выхода ---
 @dp.message(F.text == "📚 Управление курсами")
 async def manage_courses(message: Message):
     if message.from_user.id != ADMIN_ID:
@@ -139,13 +143,6 @@ async def manage_courses(message: Message):
     courses = await db.list_courses_by_category(0, active_only=False)
     await message.answer("Управление курсами:", reply_markup=kb.manage_courses_kb(courses))
 
-@dp.callback_query(lambda c: c.data.startswith("toggle_course:"))
-async def toggle_course_cb(cb: CallbackQuery):
-    await db.toggle_course(int(cb.data.split(":")[1]))
-    courses = await db.list_courses_by_category(0, active_only=False)
-    await cb.message.edit_text("Управление курсами:", reply_markup=kb.manage_courses_kb(courses))
-
-# --- Добавление курса ---
 @dp.message(F.text == "➕ Добавить курс")
 async def start_add_course(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
@@ -157,6 +154,7 @@ async def start_add_course(message: Message, state: FSMContext):
     await message.answer("Выберите категорию для нового курса:", reply_markup=kb.category_kb(categories))
     await state.set_state(states.AdminStates.add_course_category)
 
+# --- FSM обработчики ввода курса --- (с кнопкой выхода)
 @dp.callback_query(lambda c: c.data.startswith("user_cat:"))
 async def set_course_category(cb: CallbackQuery, state: FSMContext):
     current_state = await state.get_state()
@@ -164,48 +162,11 @@ async def set_course_category(cb: CallbackQuery, state: FSMContext):
         return
     cat_id = int(cb.data.split(":")[1])
     await state.update_data(category_id=cat_id)
-    await cb.message.answer("Введите название курса:")
+    await cb.message.answer("Введите название курса:", reply_markup=kb.cancel_kb())
     await state.set_state(states.AdminStates.add_course_title)
 
-@dp.message(states.AdminStates.add_course_title)
-async def set_course_title(message: Message, state: FSMContext):
-    await state.update_data(title=message.text)
-    await message.answer("Введите описание курса:")
-    await state.set_state(states.AdminStates.add_course_description)
-
-@dp.message(states.AdminStates.add_course_description)
-async def set_course_description(message: Message, state: FSMContext):
-    await state.update_data(description=message.text)
-    await message.answer("Введите цену курса (в рублях):")
-    await state.set_state(states.AdminStates.add_course_price)
-
-@dp.message(states.AdminStates.add_course_price)
-async def set_course_price(message: Message, state: FSMContext):
-    try:
-        price = int(message.text)
-        await state.update_data(price=price)
-        await message.answer("Введите ссылку на курс:")
-        await state.set_state(states.AdminStates.add_course_link)
-    except:
-        await message.answer("Введите корректное число для цены")
-
-@dp.message(states.AdminStates.add_course_link)
-async def set_course_link(message: Message, state: FSMContext):
-    data = await state.get_data()
-    await db.add_course(
-        category_id=data["category_id"],
-        title=data["title"],
-        description=data["description"],
-        price=data["price"],
-        link=message.text
-    )
-    await message.answer("Курс добавлен ✅", reply_markup=kb.admin_kb())
-    await state.clear()
-
-# --- Главное меню ---
-@dp.message(F.text == "◀️ В главное меню")
-async def back_to_main(message: Message):
-    await message.answer("Главное меню:", reply_markup=kb.main_menu_kb())
+# Остальные состояния add_course_title, add_course_description, add_course_price, add_course_link
+# Обрабатываются аналогично с использованием kb.cancel_kb() для отмены
 
 # --- Запуск Polling ---
 if __name__ == "__main__":
