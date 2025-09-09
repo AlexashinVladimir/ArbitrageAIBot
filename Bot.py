@@ -1,7 +1,7 @@
 import asyncio
 import os
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
+from aiogram.filters import Command, ContentType
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
@@ -14,7 +14,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 PAYMENT_TOKEN = os.getenv("PAYMENT_TOKEN")
 
-bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
+# ------------------ Инициализация бота ------------------
+bot = Bot(token=BOT_TOKEN)  # parse_mode не передаем, чтобы не было DeprecationWarning
 dp = Dispatcher(storage=MemoryStorage())
 
 # ------------------ Инициализация базы ------------------
@@ -94,13 +95,14 @@ async def pay_course(call: types.CallbackQuery):
 async def checkout(pre_checkout: types.PreCheckoutQuery):
     await bot.answer_pre_checkout_query(pre_checkout.id, ok=True)
 
-@dp.message(types.ContentType.SUCCESSFUL_PAYMENT)
-async def successful_payment(message: types.Message):
+@dp.message(ContentType.SUCCESSFUL_PAYMENT)
+async def successful_payment_handler(message: types.Message):
     await message.answer("✅ Оплата прошла успешно! Курс доступен для обучения.")
 
 # ------------------ Запуск ------------------
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
+
 
 
 
