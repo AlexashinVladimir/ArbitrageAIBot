@@ -1,86 +1,92 @@
-"""
-Bot.py — основной файл с логикой Telegram-бота (адаптирован под Aiogram 3.6).
-"""
-
 import asyncio
 import os
-import aiosqlite
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode, ContentType
+from aiogram.filters import Command, Text, StateFilter
+from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Message, LabeledPrice
-from aiogram.filters import Command
+from aiogram.types import Message, LabeledPrice, PreCheckoutQuery
 from dotenv import load_dotenv
+
+import aiosqlite
 
 import db
 import keyboards as kb
-import texts
 from states import AddCategory, AddCourse, EditCourse
 
+# Загружаем переменные окружения
 load_dotenv()
-
 TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 PAYMENTS_PROVIDER_TOKEN = os.getenv("PAYMENTS_PROVIDER_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# ✅ Aiogram 3.6: используем parse_mode прямо в Bot
+if not TOKEN:
+    raise ValueError("❌ BOT_TOKEN не найден в .env")
+if not PAYMENTS_PROVIDER_TOKEN:
+    raise ValueError("❌ PAYMENTS_PROVIDER_TOKEN не найден в .env")
+
+# Инициализация бота и диспетчера
 bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
-dp = Dispatcher(storage=MemoryStorage())
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 
-DB_PATH = db.DB_PATH
 
+# ===========================
+# 🔹 Общие хендлеры
+# ===========================
 
-# ---------------- START ----------------
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
-    admin = (message.from_user.id == ADMIN_ID)
-    menu = kb.main_menu(admin=admin)
-    await message.answer(texts.random_start(), reply_markup=menu)
+    admin = message.from_user.id == ADMIN_ID
+    await message.answer(
+        "👋 Добро пожаловать! Здесь ты можешь выбрать курс или познать истину через мои слова.",
+        reply_markup=kb.main_menu(admin)
+    )
 
 
-# ---------------- О боте ----------------
 @dp.message(F.text == "ℹ️ О боте")
-async def cmd_about(message: Message):
-    await message.answer(texts.random_about())
+async def about_handler(message: Message):
+    await message.answer(
+        "Я циничный ИИ. Моя задача — продать тебе знание, которое изменит твою жизнь. "
+        "Если не изменит — это уже твоя вина."
+    )
 
 
-# ---------------- Курсы ----------------
+# ===========================
+# 🔹 Пользователь: курсы
+# ===========================
+
 @dp.message(F.text == "📚 Курсы")
-async def show_categories(message: Message):
-    async with aiosqlite.connect(DB_PATH) as conn:
+async def list_categories(message: Message):
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM categories ORDER BY id")
-        rows = await cur.fetchall()
-        categories = [dict(r) for r in rows]
+        cur = await conn.execute("SELECT * FROM categories")
+        categories = await cur.fetchall()
 
     if not categories:
-        await message.answer(texts.CATEGORY_EMPTY)
+        await message.answer("Категорий пока нет.")
         return
 
-    await message.answer("Выбери категорию:", reply_markup=kb.categories_inline(categories))
+    await message.answer("Выбери категорию:", reply_markup=kb.categories_inline([dict(c) for c in categories]))
 
 
 @dp.callback_query(F.data.startswith("category:"))
-async def show_courses(callback: types.CallbackQuery):
-    category_id = int(callback.data.split(":")[1])
-
-    async with aiosqlite.connect(DB_PATH) as conn:
+async def list_courses(callback: types.CallbackQuery):
+    cat_id = int(callback.data.split(":")[1])
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM courses WHERE category_id = ?", (category_id,))
-        rows = await cur.fetchall()
-        courses = [dict(r) for r in rows]
+        cur = await conn.execute("SELECT * FROM courses WHERE category_id=?", (cat_id,))
+        courses = await cur.fetchall()
 
     if not courses:
-        await callback.message.answer(texts.COURSE_EMPTY)
+        await callback.message.answer("В этой категории пока нет курсов.")
         await callback.answer()
         return
 
-    for course in courses:
-        text = f"<b>{course['title']}</b>\n\n{course['description']}\n\nЦена: {course['price']} ₽"
-        await callback.message.answer(
-            text,
-            reply_markup=kb.course_inline(course_id=course["id"])
-        )
+    for c in courses:
+        text = f"<b>{c['title']}</b>\n\n{c['description']}\n\nЦена: {c['price']} руб."
+        await callback.message.answer(text, reply_markup=kb.course_inline(c["id"]))
+
     await callback.answer()
 
 
@@ -88,13 +94,13 @@ async def show_courses(callback: types.CallbackQuery):
 async def buy_course(callback: types.CallbackQuery):
     course_id = int(callback.data.split(":")[1])
 
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM courses WHERE id = ?", (course_id,))
+        cur = await conn.execute("SELECT * FROM courses WHERE id=?", (course_id,))
         course = await cur.fetchone()
 
     if not course:
-        await callback.answer("Курс не найден.", show_alert=True)
+        await callback.answer("Курс не найден", show_alert=True)
         return
 
     prices = [LabeledPrice(label=course["title"], amount=course["price"] * 100)]
@@ -103,225 +109,233 @@ async def buy_course(callback: types.CallbackQuery):
         chat_id=callback.from_user.id,
         title=course["title"],
         description=course["description"],
+        payload=str(course_id),
         provider_token=PAYMENTS_PROVIDER_TOKEN,
         currency="RUB",
-        prices=prices,
-        payload=f"course:{course['id']}"
+        prices=prices
     )
     await callback.answer()
 
 
 @dp.pre_checkout_query()
-async def pre_checkout(pre_checkout_q: types.PreCheckoutQuery):
+async def pre_checkout(pre_checkout_q: PreCheckoutQuery):
     await bot.answer_pre_checkout_query(pre_checkout_q.id, ok=True)
 
 
 @dp.message(F.content_type == ContentType.SUCCESSFUL_PAYMENT)
-async def successful_payment(message: types.Message):
-    payload = message.successful_payment.invoice_payload
-    course_id = int(payload.split(":")[1])
+async def successful_payment(message: Message):
+    course_id = int(message.successful_payment.invoice_payload)
+    user_id = message.from_user.id
 
-    async with aiosqlite.connect(DB_PATH) as conn:
-        # Сохраняем покупку
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         await conn.execute(
             "INSERT OR IGNORE INTO purchases (user_id, course_id) VALUES (?, ?)",
-            (message.from_user.id, course_id)
+            (user_id, course_id)
         )
         await conn.commit()
 
-        conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM courses WHERE id = ?", (course_id,))
-        course = await cur.fetchone()
+        cur = await conn.execute("SELECT link FROM courses WHERE id=?", (course_id,))
+        row = await cur.fetchone()
 
-    await message.answer(
-        texts.COURSE_PURCHASED.format(title=course["title"]) + f"\n\nСсылка: {course['link']}"
-    )
+    if row and row["link"]:
+        await message.answer(f"✅ Оплата прошла успешно!\nВот твоя ссылка: {row['link']}")
+    else:
+        await message.answer("✅ Оплата прошла, но ссылка к курсу не найдена. Обратись к админу.")
 
 
-# ---------------- Админ-панель ----------------
+# ===========================
+# 🔹 Админ-панель
+# ===========================
+
 @dp.message(F.text == "👑 Админ-панель")
 async def admin_panel(message: Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer(texts.ADMIN_ONLY)
+        await message.answer("Ты не админ.")
         return
-    await message.answer("Добро пожаловать в админ-панель:", reply_markup=kb.admin_menu)
+    await message.answer("Добро пожаловать в админку.", reply_markup=kb.admin_menu)
 
 
-# ---------------- Управление категориями ----------------
+# --- Категории ---
+
 @dp.message(F.text == "Управление категориями")
 async def manage_categories(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer(texts.ADMIN_ONLY)
-        return
-
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM categories ORDER BY id")
-        rows = await cur.fetchall()
-        categories = [dict(r) for r in rows]
+        cur = await conn.execute("SELECT * FROM categories")
+        categories = await cur.fetchall()
 
-    if not categories:
-        await message.answer("Категорий пока нет.", reply_markup=kb.categories_admin_inline([]))
-    else:
-        await message.answer("Список категорий:", reply_markup=kb.categories_admin_inline(categories))
+    await message.answer(
+        "Категории:",
+        reply_markup=kb.categories_admin_inline([dict(c) for c in categories])
+    )
 
 
 @dp.callback_query(F.data == "admin_add_category")
-async def admin_add_category(callback: types.CallbackQuery, state):
+async def add_category_start(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("Введи название новой категории:", reply_markup=kb.cancel_kb)
     await state.set_state(AddCategory.waiting_for_title)
     await callback.answer()
 
 
-@dp.message(AddCategory.waiting_for_title, F.text)
-async def add_category(message: Message, state):
+@dp.message(StateFilter(AddCategory.waiting_for_title))
+async def add_category_finish(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.clear()
-        await message.answer(texts.CANCELLED, reply_markup=kb.main_menu(admin=(message.from_user.id == ADMIN_ID)))
+        await message.answer("Отмена.", reply_markup=kb.main_menu(message.from_user.id == ADMIN_ID))
         return
 
-    async with aiosqlite.connect(DB_PATH) as conn:
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         await conn.execute("INSERT INTO categories (title) VALUES (?)", (message.text,))
         await conn.commit()
 
+    await message.answer("✅ Категория добавлена.", reply_markup=kb.admin_menu)
     await state.clear()
-    await message.answer(f"✅ Категория «{message.text}» добавлена!", reply_markup=kb.main_menu(admin=True))
 
 
 @dp.callback_query(F.data.startswith("delcat:"))
 async def delete_category(callback: types.CallbackQuery):
-    category_id = int(callback.data.split(":")[1])
-    async with aiosqlite.connect(DB_PATH) as conn:
-        await conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+    cat_id = int(callback.data.split(":")[1])
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.execute("DELETE FROM categories WHERE id=?", (cat_id,))
         await conn.commit()
-    await callback.message.answer("Категория удалена.", reply_markup=kb.admin_menu)
+
+    await callback.message.answer("❌ Категория удалена.")
     await callback.answer()
 
 
-# ---------------- Управление курсами ----------------
-@dp.message(F.text == "Управление курсами")
-async def admin_manage_courses(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer(texts.ADMIN_ONLY)
-        return
+# --- Курсы ---
 
-    async with aiosqlite.connect(DB_PATH) as conn:
+@dp.message(F.text == "Управление курсами")
+async def manage_courses(message: Message):
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM courses ORDER BY id")
-        rows = await cur.fetchall()
-        courses = [dict(r) for r in rows]
+        cur = await conn.execute("SELECT * FROM courses")
+        courses = await cur.fetchall()
 
     if not courses:
-        await message.answer("Курсов пока нет.", reply_markup=kb.admin_courses_inline([]))
-    else:
-        await message.answer("Список курсов:", reply_markup=kb.admin_courses_inline(courses))
+        await message.answer("Курсов пока нет.", reply_markup=kb.admin_menu)
+        return
+
+    await message.answer(
+        "Курсы:",
+        reply_markup=kb.admin_courses_inline([dict(c) for c in courses])
+    )
 
 
-# ---------------- Редактирование и удаление курсов ----------------
-@dp.callback_query(F.data.startswith("admin_course:"))
-async def admin_course_actions(callback: types.CallbackQuery):
-    course_id = int(callback.data.split(":")[1])
-
-    async with aiosqlite.connect(DB_PATH) as conn:
+@dp.callback_query(F.data == "admin_add_course")
+async def add_course_start(callback: types.CallbackQuery, state: FSMContext):
+    async with aiosqlite.connect(db.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        cur = await conn.execute("SELECT * FROM courses WHERE id = ?", (course_id,))
-        course = await cur.fetchone()
+        cur = await conn.execute("SELECT * FROM categories")
+        categories = await cur.fetchall()
 
-    if not course:
-        await callback.answer("Курс не найден.", show_alert=True)
+    if not categories:
+        await callback.message.answer("Сначала создай категорию.")
+        await callback.answer()
         return
 
-    text = f"<b>{course['title']}</b>\n\n{course['description']}\n\nЦена: {course['price']} ₽\nСсылка: {course['link']}"
-    await callback.message.answer(
-        text,
-        reply_markup=kb.course_admin_inline(course_id=course_id)
+    buttons = [[types.KeyboardButton(text=c["title"])] for c in categories]
+    kb_select = types.ReplyKeyboardMarkup(
+        keyboard=buttons + [[types.KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
     )
+
+    await callback.message.answer("Выбери категорию:", reply_markup=kb_select)
+    await state.set_state(AddCourse.waiting_for_category)
     await callback.answer()
 
 
-@dp.callback_query(F.data.startswith("delcourse:"))
-async def delete_course(callback: types.CallbackQuery):
-    course_id = int(callback.data.split(":")[1])
-    async with aiosqlite.connect(DB_PATH) as conn:
-        await conn.execute("DELETE FROM courses WHERE id = ?", (course_id,))
-        await conn.commit()
-    await callback.message.answer("Курс удалён.", reply_markup=kb.admin_menu)
-    await callback.answer()
-
-
-@dp.callback_query(F.data.startswith("editcourse:"))
-async def edit_course_start(callback: types.CallbackQuery, state):
-    course_id = int(callback.data.split(":")[1])
-    await state.update_data(course_id=course_id)
-    await state.set_state(EditCourse.waiting_for_field)
-    await callback.message.answer(
-        "Что редактируем?",
-        reply_markup=kb.edit_course_kb
-    )
-    await callback.answer()
-
-
-@dp.message(EditCourse.waiting_for_field, F.text)
-async def edit_course_field(message: Message, state):
-    field_map = {
-        "Название": "title",
-        "Описание": "description",
-        "Цена": "price",
-        "Ссылка": "link"
-    }
-    if message.text not in field_map:
-        await message.answer("Выбери из кнопок.")
-        return
-
-    await state.update_data(field=field_map[message.text])
-    await state.set_state(EditCourse.waiting_for_value)
-    await message.answer(f"Введи новое значение для «{message.text}»:", reply_markup=kb.cancel_kb)
-
-
-@dp.message(EditCourse.waiting_for_value, F.text)
-async def edit_course_value(message: Message, state):
+@dp.message(StateFilter(AddCourse.waiting_for_category))
+async def add_course_category(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.clear()
-        await message.answer(texts.CANCELLED, reply_markup=kb.main_menu(admin=True))
+        await message.answer("Отмена.", reply_markup=kb.admin_menu)
         return
 
-    data = await state.get_data()
-    course_id = data["course_id"]
-    field = data["field"]
-    value = message.text
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        cur = await conn.execute("SELECT id FROM categories WHERE title=?", (message.text,))
+        row = await cur.fetchone()
 
-    if field == "price" and not value.isdigit():
+    if not row:
+        await message.answer("Такой категории нет. Попробуй снова.")
+        return
+
+    await state.update_data(category_id=row[0])
+    await state.set_state(AddCourse.waiting_for_title)
+    await message.answer("Введи название курса:", reply_markup=kb.cancel_kb)
+
+
+@dp.message(StateFilter(AddCourse.waiting_for_title))
+async def add_course_title(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отмена.", reply_markup=kb.admin_menu)
+        return
+
+    await state.update_data(title=message.text)
+    await state.set_state(AddCourse.waiting_for_description)
+    await message.answer("Введи описание курса:", reply_markup=kb.cancel_kb)
+
+
+@dp.message(StateFilter(AddCourse.waiting_for_description))
+async def add_course_desc(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отмена.", reply_markup=kb.admin_menu)
+        return
+
+    await state.update_data(description=message.text)
+    await state.set_state(AddCourse.waiting_for_price)
+    await message.answer("Введи цену курса (только число):", reply_markup=kb.cancel_kb)
+
+
+@dp.message(StateFilter(AddCourse.waiting_for_price))
+async def add_course_price(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отмена.", reply_markup=kb.admin_menu)
+        return
+
+    if not message.text.isdigit():
         await message.answer("Цена должна быть числом.")
         return
 
-    async with aiosqlite.connect(DB_PATH) as conn:
-        await conn.execute(f"UPDATE courses SET {field} = ? WHERE id = ?", (value, course_id))
+    await state.update_data(price=int(message.text))
+    await state.set_state(AddCourse.waiting_for_link)
+    await message.answer("Введи ссылку на курс:", reply_markup=kb.cancel_kb)
+
+
+@dp.message(StateFilter(AddCourse.waiting_for_link))
+async def add_course_link(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("Отмена.", reply_markup=kb.admin_menu)
+        return
+
+    data = await state.get_data()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        await conn.execute(
+            "INSERT INTO courses (category_id, title, description, price, link) VALUES (?, ?, ?, ?, ?)",
+            (data["category_id"], data["title"], data["description"], data["price"], message.text)
+        )
         await conn.commit()
 
     await state.clear()
-    await message.answer("✅ Курс обновлён.", reply_markup=kb.main_menu(admin=True))
+    await message.answer("✅ Курс добавлен!", reply_markup=kb.admin_menu)
 
 
-# ---------------- Fallback ----------------
-@dp.message()
-async def fallback(message: types.Message):
-    await message.answer(
-        texts.random_fallback(),
-        reply_markup=kb.main_menu(admin=(message.from_user.id == ADMIN_ID))
-    )
+# ===========================
+# 🔹 Запуск бота
+# ===========================
 
-
-# ---------------- Main ----------------
 async def main():
     await db.init_db()
+    print("Бот запущен.")
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
 
 
 
