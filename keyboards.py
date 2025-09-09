@@ -1,72 +1,99 @@
-"""Все клавиатуры и inline-клавиатуры."""
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from typing import List
+"""
+keyboards.py — все клавиатуры для бота.
+Совместимо с Aiogram 3.6+ (pydantic-based).
+"""
+
+from aiogram.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 
 
-# Главная клавиатура
-def main_menu() -> ReplyKeyboardMarkup:
-kb = ReplyKeyboardMarkup(keyboard=[
-[KeyboardButton(text='📚 Курсы'), KeyboardButton(text='ℹ️ О боте')]
-], resize_keyboard=True)
-return kb
+# -------------------- Главное меню --------------------
+def main_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📚 Курсы")],
+            [KeyboardButton(text="ℹ️ О боте")],
+        ],
+        resize_keyboard=True,
+    )
 
 
-# Admin keyboard (reply)
-def admin_menu() -> ReplyKeyboardMarkup:
-kb = ReplyKeyboardMarkup(keyboard=[
-[KeyboardButton(text='Управление курсами')],
-[KeyboardButton(text='Добавить курс')],
-[KeyboardButton(text='Управление категориями')],
-[KeyboardButton(text='❌ Отмена')]
-], resize_keyboard=True)
-return kb
+# -------------------- Админ меню --------------------
+def admin_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Управление курсами")],
+            [KeyboardButton(text="Управление категориями")],
+            [KeyboardButton(text="❌ Отмена")],
+        ],
+        resize_keyboard=True,
+    )
 
 
-# Inline: categories list
-def categories_inline(categories: List[dict]) -> InlineKeyboardMarkup:
-kb = InlineKeyboardMarkup()
-for c in categories:
-kb.add(InlineKeyboardButton(text=c['title'], callback_data=f'category:{c["id"]}'))
-return kb
+# -------------------- Категории --------------------
+def categories_inline(categories: list[dict]):
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=c["title"], callback_data=f"category:{c['id']}")]
+            for c in categories
+        ]
+    )
+    return markup
 
 
-# Inline: courses list with pay buttons
-def courses_inline(courses: List[dict]) -> InlineKeyboardMarkup:
-kb = InlineKeyboardMarkup()
-for course in courses:
-kb.add(InlineKeyboardButton(text=f"{course['title']} — {course['price']/100:.2f} {course['currency']}", callback_data=f'course_show:{course["id"]}'))
-kb.add(InlineKeyboardButton(text='Оплатить', callback_data=f'course_pay:{course["payload"]}'))
-return kb
+def admin_categories_inline(categories: list[dict]):
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"❌ {c['title']}", callback_data=f"admin_del_category:{c['id']}")]
+            for c in categories
+        ]
+        + [[InlineKeyboardButton(text="➕ Добавить категорию", callback_data="admin_add_category")]]
+    )
+    return markup
 
 
-# Inline: single course show with pay
-def course_detail_inline(course: dict) -> InlineKeyboardMarkup:
-kb = InlineKeyboardMarkup()
-kb.add(InlineKeyboardButton(text=f'Оплатить — {course["price"]/100:.2f} {course["currency"]}', callback_data=f'course_pay:{course["payload"]}'))
-return kb
+# -------------------- Курсы --------------------
+def courses_inline(courses: list[dict]):
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=course["title"], callback_data=f"course_show:{course['id']}")]
+            for course in courses
+        ]
+    )
+    return markup
 
 
-# Admin category management inline
-def admin_categories_inline(categories: List[dict]) -> InlineKeyboardMarkup:
-kb = InlineKeyboardMarkup()
-for c in categories:
-title = c['title'] + ('' if c['is_active'] else ' (off)')
-kb.add(InlineKeyboardButton(text=title, callback_data=f'admin_cat:{c["id"]}'))
-kb.add(InlineKeyboardButton(text='➕ Добавить категорию', callback_data='admin_cat_add'))
-kb.add(InlineKeyboardButton(text='❌ Отмена', callback_data='admin_cancel'))
-return kb
+def course_detail_inline(course: dict):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"Оплатить {course['price'] / 100:.2f} {course['currency']}",
+                                  callback_data=f"course_pay:{course['payload']}")]
+        ]
+    )
 
 
-# Admin course management inline
-def admin_courses_inline(courses: List[dict]) -> InlineKeyboardMarkup:
-kb = InlineKeyboardMarkup()
-for course in courses:
-kb.add(InlineKeyboardButton(text=course['title'], callback_data=f'admin_course:{course["id"]}'))
-kb.add(InlineKeyboardButton(text='➕ Добавить курс', callback_data='admin_course_add'))
-kb.add(InlineKeyboardButton(text='❌ Отмена', callback_data='admin_cancel'))
-return kb
+def admin_courses_inline(courses: list[dict]):
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"✏️ {c['title']}", callback_data=f"admin_course:{c['id']}")]
+            for c in courses
+        ]
+        + [[InlineKeyboardButton(text="➕ Добавить курс", callback_data="admin_add_course")]]
+    )
+    return markup
 
 
-# Generic cancel keyboard (reply)
-def cancel_kb() -> ReplyKeyboardMarkup:
-return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='❌ Отмена')]], resize_keyboard=True)
+def edit_course_inline(course_id: int):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Название", callback_data=f"edit_course_title:{course_id}")],
+            [InlineKeyboardButton(text="Описание", callback_data=f"edit_course_description:{course_id}")],
+            [InlineKeyboardButton(text="Цена", callback_data=f"edit_course_price:{course_id}")],
+            [InlineKeyboardButton(text="❌ Удалить", callback_data=f"delete_course:{course_id}")],
+        ]
+    )
+
