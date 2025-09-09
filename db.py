@@ -61,11 +61,6 @@ async def list_categories(active_only: bool = True, path: str = DB_PATH) -> List
             cursor = await db.execute("SELECT id, name, is_active FROM categories ORDER BY id")
         return await cursor.fetchall()
 
-async def get_category(cat_id: int, path: str = DB_PATH) -> Optional[Tuple]:
-    async with aiosqlite.connect(path) as db:
-        cur = await db.execute("SELECT id, name, is_active FROM categories WHERE id=?", (cat_id,))
-        return await cur.fetchone()
-
 async def toggle_category(cat_id: int, path: str = DB_PATH):
     async with aiosqlite.connect(path) as db:
         cur = await db.execute("SELECT is_active FROM categories WHERE id=?", (cat_id,))
@@ -139,5 +134,7 @@ async def add_purchase(user_id: int, course_id: int, amount: int, currency: str,
             (user_id, course_id, amount, currency, telegram_charge_id, provider_charge_id)
         )
         await db.commit()
+
+
 
 
