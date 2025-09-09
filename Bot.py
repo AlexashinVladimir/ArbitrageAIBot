@@ -1,8 +1,7 @@
 """
 Bot.py — основной файл бота.
 Поддержка: Aiogram 3.6+, SQLite (через aiosqlite), Polling, Telegram Payments.
-Функционал редактирования курсов: название, описание, цена.
-Запуск: python Bot.py
+Функционал: просмотр курсов, покупка, админка (категории и курсы).
 """
 
 import asyncio
@@ -63,7 +62,22 @@ async def on_startup():
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     await db.ensure_user(message.from_user.id)
-    await message.answer(texts.START, reply_markup=kb.main_menu())
+
+    # проверка: если админ → показать меню с кнопкой "⚙️ Админ"
+    if message.from_user.id == ADMIN_ID:
+        menu = kb.main_menu(admin=True)
+    else:
+        menu = kb.main_menu()
+
+    await message.answer(texts.START, reply_markup=menu)
+
+
+@dp.message(Command("admin"))
+async def admin_panel(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer(texts.ADMIN_ONLY)
+        return
+    await message.answer("Админ-панель:", reply_markup=kb.admin_menu())
 
 
 @dp.message(F.text == "ℹ️ О боте")
@@ -78,6 +92,14 @@ async def show_categories(message: types.Message):
         await message.answer(texts.CATEGORY_EMPTY)
         return
     await message.answer("Выберите категорию:", reply_markup=kb.categories_inline(categories))
+
+
+@dp.message(F.text == "⚙️ Админ")
+async def open_admin_menu(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer(texts.ADMIN_ONLY)
+        return
+    await message.answer("Админ-панель:", reply_markup=kb.admin_menu())
 
 
 @dp.callback_query(lambda c: c.data and c.data.startswith("category:"))
@@ -201,12 +223,12 @@ async def admin_manage_categories(message: types.Message):
 @dp.message(F.text == "❌ Отмена")
 async def cancel_by_text(message: types.Message, state: FSMContext):
     await state.clear()
-    await message.answer(texts.CANCELLED, reply_markup=kb.main_menu())
+    await message.answer(texts.CANCELLED, reply_markup=kb.main_menu(admin=(message.from_user.id == ADMIN_ID)))
 
 
 @dp.message()
 async def fallback(message: types.Message):
-    await message.answer("Неизвестная команда. Используйте главное меню.", reply_markup=kb.main_menu())
+    await message.answer("Неизвестная команда. Используйте главное меню.", reply_markup=kb.main_menu(admin=(message.from_user.id == ADMIN_ID)))
 
 
 # -------------------- Запуск --------------------
@@ -220,7 +242,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 
 
 
