@@ -61,8 +61,7 @@ async def on_startup():
 async def cmd_start(message: types.Message):
     await db.ensure_user(message.from_user.id)
     menu = kb.main_menu(admin=(message.from_user.id == ADMIN_ID))
-    await message.answer(texts.START, reply_markup=menu)
-
+    await message.answer(texts.random_start(), reply_markup=menu)
 
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
@@ -74,7 +73,7 @@ async def admin_panel(message: types.Message):
 
 @dp.message(F.text == "ℹ️ О боте")
 async def about_handler(message: types.Message):
-    await message.answer(texts.ABOUT)
+    await message.answer(texts.random_about())
 
 
 @dp.message(F.text == "📚 Курсы")
@@ -377,6 +376,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
