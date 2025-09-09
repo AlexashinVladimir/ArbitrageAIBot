@@ -8,6 +8,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 import db, keyboards as kb, texts, states
 
+# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -17,6 +18,7 @@ CURRENCY = os.getenv("CURRENCY", "RUB")
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
+# Инициализация базы данных
 asyncio.run(db.init_db())
 
 # --- Старт и помощь ---
@@ -32,18 +34,12 @@ async def help_cmd(message: Message):
 @dp.message(F.text == "📚 Курсы")
 async def show_categories(message: Message):
     categories = await db.list_categories()
-    if not categories:
-        await message.answer("Категории пока пусты")
-        return
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
 @dp.callback_query(lambda c: c.data.startswith("user_cat:"))
 async def choose_category_user(cb: CallbackQuery, state: FSMContext):
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
-    if not courses:
-        await cb.message.answer("Курсы в этой категории отсутствуют")
-        return
     await cb.message.answer("Выберите курс:", reply_markup=kb.course_kb(courses))
 
 @dp.callback_query(lambda c: c.data.startswith("course:"))
@@ -215,5 +211,6 @@ async def back_to_main(message: Message):
 if __name__ == "__main__":
     print("Бот запущен на polling...")
     asyncio.run(dp.start_polling(bot))
+
 
 
