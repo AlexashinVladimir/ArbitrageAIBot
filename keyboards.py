@@ -26,43 +26,42 @@ def admin_kb():
 
 # --- Inline кнопки категорий ---
 def category_kb(categories: list):
-    kb = InlineKeyboardMarkup(row_width=1)
-    for cat_id, name, is_active in categories:
-        kb.add(InlineKeyboardButton(text=f"{name}", callback_data=f"category:{cat_id}"))
-    return kb
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=name, callback_data=f"category:{cat_id}")] for cat_id, name, is_active in categories
+        ]
+    )
 
 # --- Inline кнопки курсов ---
 def course_kb(courses: list):
-    kb = InlineKeyboardMarkup(row_width=1)
-    for course in courses:
-        kb.add(
-            InlineKeyboardButton(text=f"{course[1]} - {course[3]} ₽", callback_data=f"course:{course[0]}")
-        )
-    return kb
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"{c[2]} - {c[4]} ₽", callback_data=f"course:{c[0]}")] for c in courses
+        ]
+    )
 
 # --- Кнопка оплаты ---
 def pay_kb(course_id: int):
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton(text="💳 Оплатить курс", callback_data=f"pay:{course_id}")
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить курс", callback_data=f"pay:{course_id}")]
+        ]
     )
-    return kb
 
 # --- Управление категориями ---
 def manage_categories_kb(categories: list):
-    kb = InlineKeyboardMarkup(row_width=1)
-    for cat in categories:
-        status = "✅" if cat[2] else "❌"
-        kb.add(InlineKeyboardButton(text=f"{cat[1]} {status}", callback_data=f"toggle_cat:{cat[0]}"))
-    return kb
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"{c[1]} {'✅' if c[2] else '❌'}", callback_data=f"toggle_cat:{c[0]}")] for c in categories
+        ]
+    )
 
 # --- Управление курсами ---
 def manage_courses_kb(courses: list):
-    kb = InlineKeyboardMarkup(row_width=1)
-    for course in courses:
-        status = "✅" if course[5] else "❌"
-        kb.add(InlineKeyboardButton(text=f"{course[1]} {status}", callback_data=f"toggle_course:{course[0]}"))
-    return kb
-
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"{c[2]} {'✅' if c[6] else '❌'}", callback_data=f"toggle_course:{c[0]}")] for c in courses
+        ]
+    )
 
 
