@@ -1,10 +1,11 @@
-from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.state import StatesGroup, State
+
 
 class AddCategory(StatesGroup):
-    waiting_name = State()
+waiting_for_title = State()
+
 
 class AddCourse(StatesGroup):
-    waiting_category = State()
-    waiting_name = State()
-    waiting_description = State()
-    waiting_price = State()
+waiting_for_category = State()
+waiting_for_title = State()
+waiting_for_description
