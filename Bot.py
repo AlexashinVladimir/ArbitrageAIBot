@@ -2,7 +2,7 @@ import asyncio
 import os
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode, ContentType
-from aiogram.filters import Command, Text, StateFilter
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery
