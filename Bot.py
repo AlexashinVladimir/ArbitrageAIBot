@@ -39,12 +39,11 @@ async def show_categories(message: Message):
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
 @dp.callback_query(lambda c: c.data.startswith("category:"))
-async def choose_category(cb: CallbackQuery):
-    state = dp.current_state(user=cb.from_user.id)
+async def choose_category(cb: CallbackQuery, state: FSMContext):
+    # Проверяем, не находится ли пользователь в FSM добавления курса
     current_state = await state.get_state()
-    # Если админ в FSM добавления курса, пропускаем этот callback
     if current_state == states.AdminStates.add_course_category.state:
-        return
+        return  # это админ, обрабатывается отдельным callback
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
     if not courses:
