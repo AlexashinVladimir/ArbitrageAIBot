@@ -1,6 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, Text
+from aiogram.filters import Command
+from aiogram.filters.text import Text
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.context import FSMContext
 from dotenv import load_dotenv
@@ -106,6 +107,7 @@ async def successful_payment(message: types.Message):
 # --------------------- Запуск ---------------------
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
+
 
 
 
