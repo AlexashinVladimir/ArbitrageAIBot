@@ -29,7 +29,7 @@ async def start(message: Message):
 async def help_cmd(message: Message):
     await message.answer(texts.HELP_TEXT)
 
-# --- Курсы ---
+# --- Курсы для пользователей ---
 @dp.message(F.text == "📚 Курсы")
 async def show_categories(message: Message):
     categories = await db.list_categories()
@@ -40,6 +40,11 @@ async def show_categories(message: Message):
 
 @dp.callback_query(lambda c: c.data.startswith("category:"))
 async def choose_category(cb: CallbackQuery):
+    state = dp.current_state(user=cb.from_user.id)
+    current_state = await state.get_state()
+    # Если админ в FSM добавления курса, пропускаем этот callback
+    if current_state == states.AdminStates.add_course_category.state:
+        return
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
     if not courses:
@@ -162,6 +167,8 @@ async def start_add_course(message: Message, state: FSMContext):
 
 @dp.callback_query(states.AdminStates.add_course_category)
 async def set_course_category(cb: CallbackQuery, state: FSMContext):
+    if cb.from_user.id != ADMIN_ID:
+        return
     cat_id = int(cb.data.split(":")[1])
     await state.update_data(category_id=cat_id)
     await cb.message.answer("Введите название курса:")
@@ -212,4 +219,5 @@ if __name__ == "__main__":
     import asyncio
     print("Бот запущен на polling...")
     asyncio.run(dp.start_polling(bot))
+
 
