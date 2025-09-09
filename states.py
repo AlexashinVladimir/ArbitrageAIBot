@@ -1,3 +1,5 @@
+from aiogram.fsm.state import StatesGroup, State
+
 class AddCategory(StatesGroup):
     waiting_name = State()
 
@@ -13,4 +15,5 @@ class AddCourse(StatesGroup):
 
 class ManageCourse(StatesGroup):
     waiting_course = State()
+
 
