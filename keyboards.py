@@ -2,80 +2,88 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 # Главное меню
 def main_menu_kb():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("📚 Курсы"))
-    kb.add(KeyboardButton("💡 Рекомендации ИИ"))
-    kb.add(KeyboardButton("🛠️ Админ-панель"))
-    return kb
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton("📚 Курсы")],
+            [KeyboardButton("💡 Рекомендации ИИ")],
+            [KeyboardButton("🛠️ Админ-панель")]
+        ],
+        resize_keyboard=True
+    )
 
-# Inline клавиатура категорий для пользователя
+# Кнопка отмены
+def cancel_kb():
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton("❌ Отмена")]],
+        resize_keyboard=True
+    )
+
+# Inline категории
 def category_kb(categories):
     kb = InlineKeyboardMarkup(row_width=2)
     if not categories:
-        kb.add(InlineKeyboardButton(text="◀️ В главное меню", callback_data="back_main"))
+        kb.add(InlineKeyboardButton("◀️ В главное меню", callback_data="back_main"))
         return kb
     for cat in categories:
         if cat[2]:
-            kb.insert(InlineKeyboardButton(text=cat[1], callback_data=f"user_cat:{cat[0]}"))
-    kb.add(InlineKeyboardButton(text="◀️ В главное меню", callback_data="back_main"))
+            kb.insert(InlineKeyboardButton(cat[1], callback_data=f"user_cat:{cat[0]}"))
+    kb.add(InlineKeyboardButton("◀️ В главное меню", callback_data="back_main"))
     return kb
 
-# Inline клавиатура курсов
+# Inline курсы
 def course_kb(courses):
     kb = InlineKeyboardMarkup(row_width=1)
     if not courses:
-        kb.add(InlineKeyboardButton(text="◀️ Назад к категориям", callback_data="back_categories"))
+        kb.add(InlineKeyboardButton("◀️ Назад к категориям", callback_data="back_categories"))
         return kb
     for course in courses:
         if course[6]:
-            kb.add(InlineKeyboardButton(text=course[2], callback_data=f"course:{course[0]}"))
-    kb.add(InlineKeyboardButton(text="◀️ Назад к категориям", callback_data="back_categories"))
+            kb.add(InlineKeyboardButton(course[2], callback_data=f"course:{course[0]}"))
+    kb.add(InlineKeyboardButton("◀️ Назад к категориям", callback_data="back_categories"))
     return kb
 
-# Inline кнопка оплаты
+# Кнопка оплаты
 def pay_kb(course_id):
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton(text="💳 Оплатить", callback_data=f"pay:{course_id}"))
-    kb.add(InlineKeyboardButton(text="◀️ Назад к курсам", callback_data="back_categories"))
+    kb.add(InlineKeyboardButton("💳 Оплатить", callback_data=f"pay:{course_id}"))
+    kb.add(InlineKeyboardButton("◀️ Назад к курсам", callback_data="back_categories"))
     return kb
 
 # Админка
 def admin_kb():
-    kb_r = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb_r.add(KeyboardButton("📂 Управление категориями"))
-    kb_r.add(KeyboardButton("📚 Управление курсами"))
-    kb_r.add(KeyboardButton("➕ Добавить категорию"))
-    kb_r.add(KeyboardButton("➕ Добавить курс"))
-    kb_r.add(KeyboardButton("◀️ В главное меню"))
-    return kb_r
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton("📂 Управление категориями")],
+            [KeyboardButton("📚 Управление курсами")],
+            [KeyboardButton("➕ Добавить категорию")],
+            [KeyboardButton("➕ Добавить курс")],
+            [KeyboardButton("◀️ В главное меню")]
+        ],
+        resize_keyboard=True
+    )
 
-# Управление категориями (админ)
+# Управление категориями
 def manage_categories_kb(categories):
-    kb_r = InlineKeyboardMarkup(row_width=2)
+    kb = InlineKeyboardMarkup(row_width=2)
     if not categories:
-        kb_r.add(InlineKeyboardButton(text="◀️ Назад", callback_data="back_admin"))
-        return kb_r
+        kb.add(InlineKeyboardButton("◀️ Назад", callback_data="back_admin"))
+        return kb
     for cat in categories:
         text = f"{cat[1]} {'✅' if cat[2] else '❌'}"
-        kb_r.insert(InlineKeyboardButton(text=text, callback_data=f"toggle_cat:{cat[0]}"))
-    kb_r.add(InlineKeyboardButton(text="◀️ Назад", callback_data="back_admin"))
-    return kb_r
+        kb.insert(InlineKeyboardButton(text, callback_data=f"toggle_cat:{cat[0]}"))
+    kb.add(InlineKeyboardButton("◀️ Назад", callback_data="back_admin"))
+    return kb
 
-# Управление курсами (админ)
+# Управление курсами
 def manage_courses_kb(courses):
-    kb_r = InlineKeyboardMarkup(row_width=1)
+    kb = InlineKeyboardMarkup(row_width=1)
     if not courses:
-        kb_r.add(InlineKeyboardButton(text="◀️ Назад", callback_data="back_admin"))
-        return kb_r
+        kb.add(InlineKeyboardButton("◀️ Назад", callback_data="back_admin"))
+        return kb
     for course in courses:
         text = f"{course[2]} {'✅' if course[6] else '❌'}"
-        kb_r.add(InlineKeyboardButton(text=text, callback_data=f"toggle_course:{course[0]}"))
-    kb_r.add(InlineKeyboardButton(text="◀️ Назад", callback_data="back_admin"))
-    return kb_r
+        kb.add(InlineKeyboardButton(text, callback_data=f"toggle_course:{course[0]}"))
+    kb.add(InlineKeyboardButton("◀️ Назад", callback_data="back_admin"))
+    return kb
 
-# Кнопка выхода из FSM
-def cancel_kb():
-    kb_r = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb_r.add(KeyboardButton("❌ Отмена"))
-    return kb_r
 
