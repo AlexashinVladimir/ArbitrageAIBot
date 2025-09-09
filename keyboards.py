@@ -1,14 +1,17 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 def main_menu_kb():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("📚 Курсы"))
-    kb.add(KeyboardButton("🛠️ Админ-панель"))
+    kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton("📚 Курсы")], [KeyboardButton("🛠️ Админ-панель")]],
+        resize_keyboard=True
+    )
     return kb
 
 def cancel_kb():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton("❌ Отмена"))
+    kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton("❌ Отмена")]],
+        resize_keyboard=True
+    )
     return kb
 
 def category_kb(categories: list):
@@ -27,6 +30,5 @@ def pay_kb(course_id: int):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("💳 Оплатить", callback_data=f"pay:{course_id}"))
     return kb
-
 
 
