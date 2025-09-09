@@ -1,7 +1,7 @@
 import asyncio
 import os
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, ContentType
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
@@ -43,7 +43,7 @@ async def admin_panel(message: types.Message):
 # ------------------ Добавление категории ------------------
 @dp.message(lambda message: message.text == "➕ Добавить категорию")
 async def add_category_start(message: types.Message, state: FSMContext):
-    await states.AddCategory.waiting_name.set()
+    await state.set_state(states.AddCategory.waiting_name)
     await message.answer("Введите название категории:", reply_markup=kb.cancel_kb())
 
 @dp.message(states.AddCategory.waiting_name)
@@ -74,6 +74,8 @@ async def show_courses(call: types.CallbackQuery):
         await call.message.answer(text, reply_markup=kb.pay_kb(course[0]))
 
 # ------------------ Оплата ------------------
+from aiogram.types import ContentType
+
 @dp.callback_query(lambda c: c.data.startswith("pay:"))
 async def pay_course(call: types.CallbackQuery):
     course_id = int(call.data.split(":")[1])
@@ -102,7 +104,6 @@ async def successful_payment_handler(message: types.Message):
 # ------------------ Запуск ------------------
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
-
 
 
 
