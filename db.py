@@ -140,3 +140,4 @@ async def add_purchase(user_id: int, course_id: int, amount: int, currency: str,
         )
         await db.commit()
 
+
