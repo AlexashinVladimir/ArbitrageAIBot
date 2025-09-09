@@ -9,6 +9,8 @@ import os
 import secrets
 from datetime import datetime
 
+
+from texts import random_fallback
 from dotenv import load_dotenv
 import aiosqlite
 
@@ -360,7 +362,8 @@ async def cancel_by_text(message: types.Message, state: FSMContext):
 
 @dp.message()
 async def fallback(message: types.Message):
-    await message.answer("Неизвестная команда. Используйте главное меню.", reply_markup=kb.main_menu(admin=(message.from_user.id == ADMIN_ID)))
+    await message.answer(random_fallback(), reply_markup=kb.main_menu(admin=(message.from_user.id == ADMIN_ID)))
+
 
 
 # -------------------- Запуск --------------------
@@ -374,6 +377,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
