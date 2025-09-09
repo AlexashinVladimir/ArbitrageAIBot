@@ -1,7 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-import db
 
-# --- Главное меню ---
+# Главное меню
 def main_menu_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("📚 Курсы"))
@@ -9,28 +8,28 @@ def main_menu_kb():
     kb.add(KeyboardButton("🛠️ Админ-панель"))
     return kb
 
-# --- Категории для пользователя ---
+# Inline клавиатура категорий для пользователя
 def category_kb(categories):
     kb = InlineKeyboardMarkup(row_width=2)
     for cat in categories:
-        if cat[2]:  # активная категория
+        if cat[2]:
             kb.insert(InlineKeyboardButton(text=cat[1], callback_data=f"user_cat:{cat[0]}"))
     return kb
 
-# --- Кнопки курсов ---
+# Inline клавиатура курсов
 def course_kb(courses):
     kb = InlineKeyboardMarkup(row_width=1)
     for course in courses:
         kb.add(InlineKeyboardButton(text=course[2], callback_data=f"course:{course[0]}"))
     return kb
 
-# --- Кнопка оплатить ---
+# Inline кнопка оплаты
 def pay_kb(course_id):
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton(text="💳 Оплатить", callback_data=f"pay:{course_id}"))
     return kb
 
-# --- Админ панель ---
+# Админка
 def admin_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("📂 Управление категориями"))
@@ -40,7 +39,7 @@ def admin_kb():
     kb.add(KeyboardButton("◀️ В главное меню"))
     return kb
 
-# --- Управление категориями (админ) ---
+# Управление категориями (админ)
 def manage_categories_kb(categories):
     kb = InlineKeyboardMarkup(row_width=2)
     for cat in categories:
@@ -48,10 +47,11 @@ def manage_categories_kb(categories):
         kb.insert(InlineKeyboardButton(text=text, callback_data=f"toggle_cat:{cat[0]}"))
     return kb
 
-# --- Управление курсами (админ) ---
+# Управление курсами (админ)
 def manage_courses_kb(courses):
     kb = InlineKeyboardMarkup(row_width=1)
     for course in courses:
-        text = f"{course[2]} {'✅' if course[5] else '❌'}"
+        text = f"{course[2]} {'✅' if course[6] else '❌'}"
         kb.add(InlineKeyboardButton(text=text, callback_data=f"toggle_course:{course[0]}"))
     return kb
+
