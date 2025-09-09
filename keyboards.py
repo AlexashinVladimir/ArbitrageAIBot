@@ -4,9 +4,9 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 def main_menu_kb():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("📚 Курсы")],
-            [KeyboardButton("💡 Рекомендации ИИ")],
-            [KeyboardButton("🛠️ Админ-панель")]
+            [KeyboardButton(text="📚 Курсы")],
+            [KeyboardButton(text="💡 Рекомендации ИИ")],
+            [KeyboardButton(text="🛠️ Админ-панель")]
         ],
         resize_keyboard=True
     )
@@ -15,11 +15,11 @@ def main_menu_kb():
 def admin_kb():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("➕ Добавить категорию")],
-            [KeyboardButton("📂 Управление категориями")],
-            [KeyboardButton("➕ Добавить курс")],
-            [KeyboardButton("📚 Управление курсами")],
-            [KeyboardButton("◀️ В главное меню")]
+            [KeyboardButton(text="➕ Добавить категорию")],
+            [KeyboardButton(text="📂 Управление категориями")],
+            [KeyboardButton(text="➕ Добавить курс")],
+            [KeyboardButton(text="📚 Управление курсами")],
+            [KeyboardButton(text="◀️ В главное меню")]
         ],
         resize_keyboard=True
     )
@@ -63,7 +63,6 @@ def manage_courses_kb(courses: list):
         status = "✅" if course[5] else "❌"
         kb.add(InlineKeyboardButton(text=f"{course[1]} {status}", callback_data=f"toggle_course:{course[0]}"))
     return kb
-
 
 
 
