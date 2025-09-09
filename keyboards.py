@@ -2,7 +2,10 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 
 def main_menu_kb():
     kb = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton("📚 Курсы")], [KeyboardButton("🛠️ Админ-панель")]],
+        keyboard=[
+            [KeyboardButton("📚 Курсы")],
+            [KeyboardButton("🛠️ Админ-панель")]
+        ],
         resize_keyboard=True
     )
     return kb
@@ -30,5 +33,4 @@ def pay_kb(course_id: int):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("💳 Оплатить", callback_data=f"pay:{course_id}"))
     return kb
-
 
