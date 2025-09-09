@@ -64,6 +64,5 @@ def manage_courses_kb(courses: list):
         ]
     )
 
-    )
 
 
