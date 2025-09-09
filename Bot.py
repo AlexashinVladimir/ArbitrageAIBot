@@ -4,9 +4,9 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, CallbackQuery
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 import db
 import keyboards as kb
@@ -24,7 +24,7 @@ dp = Dispatcher(storage=MemoryStorage())
 import asyncio
 asyncio.run(db.init_db())
 
-# --- FSM для админа ---
+# --- FSM ---
 class AdminStates(StatesGroup):
     add_category = State()
     add_course_category = State()
@@ -38,7 +38,6 @@ class AdminStates(StatesGroup):
 async def start(message: Message):
     await message.answer(texts.START_TEXT, reply_markup=kb.main_menu_kb())
 
-# --- Помощь ---
 @dp.message(Command("help"))
 async def help_cmd(message: Message):
     await message.answer(texts.HELP_TEXT)
@@ -106,34 +105,5 @@ async def got_payment(message: Message):
         telegram_charge_id=message.successful_payment.telegram_payment_charge_id,
         provider_charge_id=message.successful_payment.provider_payment_charge_id
     )
-    course = await db.get_course(course_id)
-    await message.answer(f"✅ Оплата принята! Ссылка на курс: {course[5]}")
+    course = await db.get_course(course
 
-# --- Рекомендации ИИ ---
-@dp.message(F.text == "💡 Рекомендации ИИ")
-async def ai_recommendation(message: Message):
-    comment = random.choice(texts.AI_RECOMMENDATION)
-    await message.answer(comment)
-
-# --- Админ-панель ---
-@dp.message(F.text == "🛠️ Админ-панель")
-async def admin_panel(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("Доступ запрещен")
-        return
-    await message.answer(texts.ADMIN_TEXT, reply_markup=kb.admin_kb())
-    await state.clear()
-
-# --- Полный CRUD и управление категориями/курсами ---
-# (Всё из предыдущего Bot.py, FSM и callback обработчики остаются)
-
-# --- Главное меню ---
-@dp.message(F.text == "◀️ В главное меню")
-async def back_to_main(message: Message):
-    await message.answer("Главное меню:", reply_markup=kb.main_menu_kb())
-
-# --- Запуск Polling ---
-if __name__ == "__main__":
-    import asyncio
-    print("Бот запущен на polling...")
-    asyncio.run(dp.start_polling(bot))
