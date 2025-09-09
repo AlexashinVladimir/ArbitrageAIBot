@@ -38,30 +38,33 @@ async def show_categories(message: Message):
         return
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
+# --- Callback для пользователя: выбор категории ---
 @dp.callback_query(lambda c: c.data.startswith("category:"))
-async def choose_category(cb: CallbackQuery, state: FSMContext):
-    # Проверяем, не находится ли пользователь в FSM добавления курса
+async def choose_category_user(cb: CallbackQuery, state: FSMContext):
     current_state = await state.get_state()
-    if current_state == states.AdminStates.add_course_category.state:
-        return  # это админ, обрабатывается отдельным callback
+    # если пользователь в FSM (например админ добавляет курс) — пропускаем
+    if current_state is not None:
+        return
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
     if not courses:
-        await cb.message.edit_text("Курсы в этой категории отсутствуют")
+        await cb.message.answer("Курсы в этой категории отсутствуют")
         return
-    await cb.message.edit_text("Выберите курс:", reply_markup=kb.course_kb(courses))
+    await cb.message.answer("Выберите курс:", reply_markup=kb.course_kb(courses))
 
+# --- Callback для пользователя: выбор курса ---
 @dp.callback_query(lambda c: c.data.startswith("course:"))
 async def course_details(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
     course = await db.get_course(course_id)
     if not course:
-        await cb.message.edit_text("Курс не найден")
+        await cb.message.answer("Курс не найден")
         return
     ai_comment = random.choice(texts.AI_RECOMMENDATION)
     text = f"<b>{course[2]}</b>\n{course[3]}\n💰 Цена: {course[4]} ₽\n\n{ai_comment}"
-    await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb.pay_kb(course_id))
+    await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb.pay_kb(course_id))
 
+# --- Оплата курса ---
 @dp.callback_query(lambda c: c.data.startswith("pay:"))
 async def pay_course(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
