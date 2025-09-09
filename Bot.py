@@ -1,5 +1,4 @@
-import os
-import random
+import os, random
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, CallbackQuery
 from aiogram.filters import Command
@@ -15,13 +14,13 @@ ADMIN_ID = int(os.getenv("ADMIN_ID"))
 PROVIDER_TOKEN = os.getenv("PROVIDER_TOKEN")
 CURRENCY = os.getenv("CURRENCY", "RUB")
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 import asyncio
 asyncio.run(db.init_db())
 
-# --- Старт ---
+# --- Старт и помощь ---
 @dp.message(Command("start"))
 async def start(message: Message):
     await message.answer(texts.START_TEXT, reply_markup=kb.main_menu_kb())
@@ -39,7 +38,7 @@ async def show_categories(message: Message):
         return
     await message.answer("Выберите категорию:", reply_markup=kb.category_kb(categories))
 
-@dp.callback_query(lambda c: c.data and c.data.startswith("category:"))
+@dp.callback_query(lambda c: c.data.startswith("category:"))
 async def choose_category(cb: CallbackQuery):
     cat_id = int(cb.data.split(":")[1])
     courses = await db.list_courses_by_category(cat_id)
@@ -48,7 +47,7 @@ async def choose_category(cb: CallbackQuery):
         return
     await cb.message.edit_text("Выберите курс:", reply_markup=kb.course_kb(courses))
 
-@dp.callback_query(lambda c: c.data and c.data.startswith("course:"))
+@dp.callback_query(lambda c: c.data.startswith("course:"))
 async def course_details(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
     course = await db.get_course(course_id)
@@ -59,7 +58,7 @@ async def course_details(cb: CallbackQuery):
     text = f"<b>{course[2]}</b>\n{course[3]}\n💰 Цена: {course[4]} ₽\n\n{ai_comment}"
     await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb.pay_kb(course_id))
 
-@dp.callback_query(lambda c: c.data and c.data.startswith("pay:"))
+@dp.callback_query(lambda c: c.data.startswith("pay:"))
 async def pay_course(cb: CallbackQuery):
     course_id = int(cb.data.split(":")[1])
     course = await db.get_course(course_id)
@@ -98,8 +97,7 @@ async def got_payment(message: Message):
 # --- Рекомендации ИИ ---
 @dp.message(F.text == "💡 Рекомендации ИИ")
 async def ai_recommendation(message: Message):
-    comment = random.choice(texts.AI_RECOMMENDATION)
-    await message.answer(comment)
+    await message.answer(random.choice(texts.AI_RECOMMENDATION))
 
 # --- Админ-панель ---
 @dp.message(F.text == "🛠️ Админ-панель")
@@ -110,18 +108,98 @@ async def admin_panel(message: Message, state: FSMContext):
     await message.answer(texts.ADMIN_TEXT, reply_markup=kb.admin_kb())
     await state.clear()
 
+# --- Управление категориями ---
+@dp.message(F.text == "📂 Управление категориями")
+async def manage_categories(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    categories = await db.list_categories(active_only=False)
+    await message.answer("Управление категориями:", reply_markup=kb.manage_categories_kb(categories))
+
+@dp.callback_query(lambda c: c.data.startswith("toggle_cat:"))
+async def toggle_category(cb: CallbackQuery):
+    await db.toggle_category(int(cb.data.split(":")[1]))
+    categories = await db.list_categories(active_only=False)
+    await cb.message.edit_text("Управление категориями:", reply_markup=kb.manage_categories_kb(categories))
+
 # --- Добавление категории ---
 @dp.message(F.text == "➕ Добавить категорию")
-async def start_add_category(message: Message, state: FSMContext):
+async def add_category_start(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         return
     await message.answer("Введите название новой категории:")
     await state.set_state(states.AdminStates.add_category)
 
 @dp.message(states.AdminStates.add_category)
-async def save_category(message: Message, state: FSMContext):
+async def add_category_save(message: Message, state: FSMContext):
     await db.add_category(message.text)
     await message.answer("Категория добавлена ✅", reply_markup=kb.admin_kb())
+    await state.clear()
+
+# --- Управление курсами ---
+@dp.message(F.text == "📚 Управление курсами")
+async def manage_courses(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    courses = await db.list_courses_by_category(0, active_only=False)
+    await message.answer("Управление курсами:", reply_markup=kb.manage_courses_kb(courses))
+
+@dp.callback_query(lambda c: c.data.startswith("toggle_course:"))
+async def toggle_course_cb(cb: CallbackQuery):
+    await db.toggle_course(int(cb.data.split(":")[1]))
+    courses = await db.list_courses_by_category(0, active_only=False)
+    await cb.message.edit_text("Управление курсами:", reply_markup=kb.manage_courses_kb(courses))
+
+# --- Добавление курса пошагово ---
+@dp.message(F.text == "➕ Добавить курс")
+async def start_add_course(message: Message, state: FSMContext):
+    categories = await db.list_categories()
+    if not categories:
+        await message.answer("Сначала добавьте категорию")
+        return
+    await message.answer("Выберите категорию для нового курса:", reply_markup=kb.category_kb(categories))
+    await state.set_state(states.AdminStates.add_course_category)
+
+@dp.callback_query(states.AdminStates.add_course_category)
+async def set_course_category(cb: CallbackQuery, state: FSMContext):
+    cat_id = int(cb.data.split(":")[1])
+    await state.update_data(category_id=cat_id)
+    await cb.message.answer("Введите название курса:")
+    await state.set_state(states.AdminStates.add_course_title)
+
+@dp.message(states.AdminStates.add_course_title)
+async def set_course_title(message: Message, state: FSMContext):
+    await state.update_data(title=message.text)
+    await message.answer("Введите описание курса:")
+    await state.set_state(states.AdminStates.add_course_description)
+
+@dp.message(states.AdminStates.add_course_description)
+async def set_course_description(message: Message, state: FSMContext):
+    await state.update_data(description=message.text)
+    await message.answer("Введите цену курса (в рублях):")
+    await state.set_state(states.AdminStates.add_course_price)
+
+@dp.message(states.AdminStates.add_course_price)
+async def set_course_price(message: Message, state: FSMContext):
+    try:
+        price = int(message.text)
+        await state.update_data(price=price)
+        await message.answer("Введите ссылку на курс:")
+        await state.set_state(states.AdminStates.add_course_link)
+    except:
+        await message.answer("Введите корректное число для цены")
+
+@dp.message(states.AdminStates.add_course_link)
+async def set_course_link(message: Message, state: FSMContext):
+    data = await state.get_data()
+    await db.add_course(
+        category_id=data["category_id"],
+        title=data["title"],
+        description=data["description"],
+        price=data["price"],
+        link=message.text
+    )
+    await message.answer("Курс добавлен ✅", reply_markup=kb.admin_kb())
     await state.clear()
 
 # --- Главное меню ---
@@ -134,5 +212,4 @@ if __name__ == "__main__":
     import asyncio
     print("Бот запущен на polling...")
     asyncio.run(dp.start_polling(bot))
-
 
