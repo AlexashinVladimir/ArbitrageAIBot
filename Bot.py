@@ -105,14 +105,11 @@ async def admin_panel(message: Message):
         return
     await message.answer(texts.ADMIN_TEXT, reply_markup=kb.admin_kb())
 
-# Управление категориями и курсами, добавление, с кнопкой отмены
-# ... (аналогично FSM, как мы делали раньше, с kb.cancel_kb() на каждом шаге)
-# Для краткости в этом примере полный FSM добавления категорий и курсов добавляем отдельно.
-
-# Запуск polling
+# --- Запуск polling ---
 if __name__ == "__main__":
     print("Бот запущен на polling...")
     asyncio.run(dp.start_polling(bot))
+
 
 
 
