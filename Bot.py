@@ -12,9 +12,9 @@ import db
 logging.basicConfig(level=logging.INFO)
 
 # === CONFIG ===
-BOT_TOKEN = "YOUR_BOT_TOKEN"  # замени на свой токен
-PAYMENT_PROVIDER_TOKEN = "YOUR_PROVIDER_TOKEN"  # токен от платежки
-ADMIN_IDS = [123456789]  # ID админов
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", 0))
+PAYMENTS_TOKEN = os.getenv("PAYMENTS_TOKEN")
 
 # === BOT ===
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
@@ -154,6 +154,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
