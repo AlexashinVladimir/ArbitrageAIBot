@@ -13,7 +13,7 @@ async def create_tables():
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL UNIQUE
-        )
+        );
         """)
         await db.execute("""
         CREATE TABLE IF NOT EXISTS courses (
@@ -23,13 +23,13 @@ async def create_tables():
             description TEXT,
             price INTEGER DEFAULT 0,
             link TEXT,
-            FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL
-        )
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+        );
         """)
         await db.commit()
 
 
-# --- Categories ---
+# ---------- Categories ----------
 async def add_category(title: str):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("INSERT OR IGNORE INTO categories (title) VALUES (?)", (title,))
@@ -51,13 +51,13 @@ async def update_category(category_id: int, new_title: str):
 
 async def delete_category(category_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
-        # delete category and set courses' category to NULL
         await db.execute("DELETE FROM categories WHERE id = ?", (category_id,))
         await db.execute("UPDATE courses SET category_id = NULL WHERE category_id = ?", (category_id,))
         await db.commit()
 
 
-# --- Courses ---
+# ---------- Courses ----------
+# signature: add_course(category_id, title, description, price, link)
 async def add_course(category_id: int, title: str, description: str, price: int, link: str):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
@@ -92,6 +92,16 @@ async def get_course(course_id: int):
         return {"id": r[0], "category_id": r[1], "title": r[2], "description": r[3], "price": r[4], "link": r[5]}
 
 
+async def get_all_courses():
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("SELECT id, category_id, title, description, price, link FROM courses ORDER BY id")
+        rows = await cur.fetchall()
+        return [
+            {"id": r[0], "category_id": r[1], "title": r[2], "description": r[3], "price": r[4], "link": r[5]}
+            for r in rows
+        ]
+
+
 async def update_course(course_id: int, title: str, description: str, price: int, link: str, category_id: int = None):
     async with aiosqlite.connect(DB_PATH) as db:
         if category_id is None:
@@ -121,20 +131,9 @@ async def delete_course(course_id: int):
         await db.commit()
 
 
-# --- Convenience for admin listing all courses ---
-async def get_all_courses():
-    async with aiosqlite.connect(DB_PATH) as db:
-        cur = await db.execute("SELECT id, category_id, title, description, price, link FROM courses ORDER BY id")
-        rows = await cur.fetchall()
-        return [
-            {"id": r[0], "category_id": r[1], "title": r[2], "description": r[3], "price": r[4], "link": r[5]}
-            for r in rows
-        ]
-
-
-# If run directly, create DB
+# If run directly — create tables
 if __name__ == "__main__":
     import asyncio
     asyncio.run(create_tables())
-    print("DB created/checked.")
+    print("DB ready.")
 
