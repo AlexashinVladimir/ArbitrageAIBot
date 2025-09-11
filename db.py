@@ -1,6 +1,6 @@
 import aiosqlite
 
-DB_PATH = "database.db"
+DB_PATH = "data.db"
 
 
 async def init_db():
@@ -80,4 +80,5 @@ async def delete_course(course_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM courses WHERE id=?", (course_id,))
         await db.commit()
+
 
