@@ -1,111 +1,205 @@
 import asyncio
 import logging
 import os
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import (
-    Message, 
-    CallbackQuery, 
-    LabeledPrice, 
-    PreCheckoutQuery, 
-    InlineKeyboardButton, 
-    InlineKeyboardMarkup
-)
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery
 from aiogram.enums import ParseMode
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 
-import keyboards as kb
 import db
+import keyboards as kb
 
-
-logging.basicConfig(level=logging.INFO)
-
-# Загружаем .env
+# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER")
+ADMIN_ID = int(os.getenv("ADMIN_ID", 0))
 
-if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN не найден в .env")
+# Логирование
+logging.basicConfig(level=logging.INFO)
 
+# Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 
 
-# --- FSM ---
-class AddCategory(StatesGroup):
+# FSM для категорий
+class CategoryStates(StatesGroup):
     waiting_for_title = State()
 
 
-class AddCourse(StatesGroup):
+# FSM для курсов
+class CourseStates(StatesGroup):
+    waiting_for_category = State()
     waiting_for_title = State()
     waiting_for_description = State()
     waiting_for_price = State()
     waiting_for_link = State()
-    waiting_for_category = State()
 
 
-# --- Команда старт ---
+# Команда /start
 @dp.message(F.text == "/start")
 async def cmd_start(message: Message):
     is_admin = message.from_user.id == ADMIN_ID
     await message.answer(
-        "Добро пожаловать. Я твой слегка циничный наставник. "
-        "Нажми кнопку и выбери свой путь.",
-        reply_markup=kb.main_menu(admin=is_admin)
+        "Добро пожаловать в этот слегка циничный, но мудрый уголок ИИ.\n"
+        "Здесь ты можешь приобрести курсы или узнать больше обо мне.",
+        reply_markup=kb.main_menu(is_admin=is_admin),
     )
 
 
-# --- Пользовательские ---
-@dp.message(F.text == "📚 Курсы")
+# О боте
+@dp.message(F.text == "ℹ️ О боте")
+async def about_bot(message: Message):
+    await message.answer(
+        "Я — твой циничный наставник. "
+        "Не обещаю, что будет легко. Но обещаю, что будет честно."
+    )
+
+
+# --- Управление категориями ---
+@dp.message(F.text == "➕ Добавить категорию")
+async def add_category(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.answer("Введи название новой категории:", reply_markup=kb.cancel())
+    await state.set_state(CategoryStates.waiting_for_title)
+
+
+@dp.message(CategoryStates.waiting_for_title)
+async def save_category(message: Message, state: FSMContext):
+    if message.text.lower() == "отмена":
+        await state.clear()
+        await message.answer("❌ Добавление категории отменено.", reply_markup=kb.admin_panel())
+        return
+    await db.add_category(message.text)
+    await state.clear()
+    await message.answer(f"✅ Категория <b>{message.text}</b> добавлена.", reply_markup=kb.admin_panel())
+
+
+# --- Управление курсами ---
+@dp.message(F.text == "➕ Добавить курс")
+async def add_course(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+    categories = await db.get_categories()
+    if not categories:
+        await message.answer("❌ Сначала добавь хотя бы одну категорию.", reply_markup=kb.admin_panel())
+        return
+    await message.answer("Выбери категорию:", reply_markup=kb.categories_inline(categories))
+    await state.set_state(CourseStates.waiting_for_category)
+
+
+@dp.callback_query(CourseStates.waiting_for_category)
+async def course_set_category(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(category_id=int(callback.data.split("_")[1]))
+    await callback.message.answer("Введи название курса:", reply_markup=kb.cancel())
+    await state.set_state(CourseStates.waiting_for_title)
+
+
+@dp.message(CourseStates.waiting_for_title)
+async def course_set_title(message: Message, state: FSMContext):
+    if message.text.lower() == "отмена":
+        await state.clear()
+        await message.answer("❌ Добавление курса отменено.", reply_markup=kb.admin_panel())
+        return
+    await state.update_data(title=message.text)
+    await message.answer("Теперь введи описание:", reply_markup=kb.cancel())
+    await state.set_state(CourseStates.waiting_for_description)
+
+
+@dp.message(CourseStates.waiting_for_description)
+async def course_set_description(message: Message, state: FSMContext):
+    if message.text.lower() == "отмена":
+        await state.clear()
+        await message.answer("❌ Добавление курса отменено.", reply_markup=kb.admin_panel())
+        return
+    await state.update_data(description=message.text)
+    await message.answer("Укажи цену в рублях:", reply_markup=kb.cancel())
+    await state.set_state(CourseStates.waiting_for_price)
+
+
+@dp.message(CourseStates.waiting_for_price)
+async def course_set_price(message: Message, state: FSMContext):
+    if message.text.lower() == "отмена":
+        await state.clear()
+        await message.answer("❌ Добавление курса отменено.", reply_markup=kb.admin_panel())
+        return
+    try:
+        price = int(message.text)
+    except ValueError:
+        await message.answer("⚠️ Введи число для цены.")
+        return
+    await state.update_data(price=price)
+    await message.answer("Вставь ссылку на курс:", reply_markup=kb.cancel())
+    await state.set_state(CourseStates.waiting_for_link)
+
+
+@dp.message(CourseStates.waiting_for_link)
+async def course_set_link(message: Message, state: FSMContext):
+    if message.text.lower() == "отмена":
+        await state.clear()
+        await message.answer("❌ Добавление курса отменено.", reply_markup=kb.admin_panel())
+        return
+    data = await state.get_data()
+    await db.add_course(
+        data["category_id"], data["title"], data["description"], data["price"], message.text
+    )
+    await state.clear()
+    await message.answer(f"✅ Курс <b>{data['title']}</b> добавлен.", reply_markup=kb.admin_panel())
+
+
+# --- Просмотр категорий и курсов ---
+@dp.message(F.text == "📚 Категории")
 async def show_categories(message: Message):
     categories = await db.get_categories()
     if not categories:
-        return await message.answer("Категорий пока нет.")
-    await message.answer("Выбирай категорию:", reply_markup=kb.categories_keyboard(categories))
+        await message.answer("Категорий пока нет.")
+        return
+    await message.answer("Выбери категорию:", reply_markup=kb.categories_inline(categories))
 
 
-@dp.callback_query(F.data.startswith("category:"))
-async def show_courses(cb: CallbackQuery):
-    cat_id = int(cb.data.split(":")[1])
-    courses = await db.get_courses(cat_id)
+@dp.callback_query(F.data.startswith("cat_"))
+async def show_courses(callback: CallbackQuery):
+    category_id = int(callback.data.split("_")[1])
+    courses = await db.get_courses(category_id)
     if not courses:
-        return await cb.message.edit_text("Курсов пока нет.")
-    await cb.message.edit_text("Вот что у меня есть:", reply_markup=kb.courses_keyboard(courses))
+        await callback.message.answer("❌ В этой категории пока нет курсов.")
+        return
+    await callback.message.answer("Доступные курсы:", reply_markup=kb.courses_inline(courses))
 
 
-@dp.callback_query(F.data.startswith("course:"))
-async def course_details(cb: CallbackQuery):
-    course_id = int(cb.data.split(":")[1])
+@dp.callback_query(F.data.startswith("course_"))
+async def show_course(callback: CallbackQuery):
+    course_id = int(callback.data.split("_")[1])
     course = await db.get_course(course_id)
     if not course:
-        return await cb.answer("Курс не найден", show_alert=True)
+        await callback.message.answer("⚠️ Курс не найден.")
+        return
     text = f"<b>{course['title']}</b>\n\n{course['description']}\n\nЦена: {course['price']}₽"
-    await cb.message.edit_text(text, reply_markup=kb.course_actions(course_id))
+    await callback.message.answer(
+        text,
+        reply_markup=kb.buy_course(course["id"], course["price"], course["title"]),
+    )
 
 
 # --- Оплата ---
-@dp.callback_query(F.data.startswith("buy:"))
-async def process_buy(cb: CallbackQuery):
-    course_id = int(cb.data.split(":")[1])
-    course = await db.get_course(course_id)
-    if not course:
-        return await cb.answer("Курс не найден", show_alert=True)
-
-    prices = [LabeledPrice(label=course["title"], amount=int(course["price"]) * 100)]
+@dp.callback_query(F.data.startswith("buy_"))
+async def process_payment(callback: CallbackQuery):
+    _, course_id, price, title = callback.data.split("_", 3)
+    prices = [LabeledPrice(label=title, amount=int(price) * 100)]
     await bot.send_invoice(
-        chat_id=cb.from_user.id,
-        title=course["title"],
-        description=course["description"],
-        payload=f"course_{course_id}",
-        provider_token=PAYMENT_PROVIDER_TOKEN,
-        currency="RUB",
+        callback.from_user.id,
+        title=title,
+        description="Доступ к курсу",
+        provider_token=PAYMENT_PROVIDER,
+        currency="rub",
         prices=prices,
-        start_parameter="purchase-course",
+        payload=f"course_{course_id}",
     )
-    await cb.answer()
 
 
 @dp.pre_checkout_query()
@@ -113,107 +207,17 @@ async def pre_checkout(pre_checkout_q: PreCheckoutQuery):
     await bot.answer_pre_checkout_query(pre_checkout_q.id, ok=True)
 
 
-@dp.message(F.successful_payment)
-async def got_payment(message: Message):
+@dp.message(F.content_type == "successful_payment")
+async def successful_payment(message: Message):
     payload = message.successful_payment.invoice_payload
-    course_id = int(payload.replace("course_", ""))
+    course_id = int(payload.split("_")[1])
     course = await db.get_course(course_id)
-    if course:
-        await message.answer(f"✅ Оплата прошла успешно!\n\nВот твоя ссылка: {course['link']}")
-
-
-# --- Админка ---
-@dp.message(F.text == "⚙️ Админ-панель")
-async def admin_panel(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        return await message.answer("Ты не админ.")
-    await message.answer("Что будем делать?", reply_markup=kb.admin_panel())
-
-
-@dp.callback_query(F.data == "admin_add_category")
-async def admin_add_category(cb: CallbackQuery, state: FSMContext):
-    await cb.message.answer("Введи название новой категории:")
-    await state.set_state(AddCategory.waiting_for_title)
-    await cb.answer()
-
-
-@dp.message(AddCategory.waiting_for_title)
-async def save_category(message: Message, state: FSMContext):
-    await db.add_category(message.text)
-    await message.answer("Категория добавлена!")
-    await state.clear()
-
-
-@dp.callback_query(F.data == "admin_add_course")
-async def admin_add_course(cb: CallbackQuery, state: FSMContext):
-    await cb.message.answer("Введи название курса:")
-    await state.set_state(AddCourse.waiting_for_title)
-    await cb.answer()
-
-
-@dp.message(AddCourse.waiting_for_title)
-async def course_title(message: Message, state: FSMContext):
-    await state.update_data(title=message.text)
-    await state.set_state(AddCourse.waiting_for_description)
-    await message.answer("Теперь введи описание курса:")
-
-
-@dp.message(AddCourse.waiting_for_description)
-async def course_description(message: Message, state: FSMContext):
-    await state.update_data(description=message.text)
-    await state.set_state(AddCourse.waiting_for_price)
-    await message.answer("Укажи цену в рублях:")
-
-
-@dp.message(AddCourse.waiting_for_price)
-async def course_price(message: Message, state: FSMContext):
-    if not message.text.isdigit():
-        return await message.answer("Цена должна быть числом.")
-    await state.update_data(price=int(message.text))
-    await state.set_state(AddCourse.waiting_for_link)
-    await message.answer("Введи ссылку на курс:")
-
-
-@dp.message(AddCourse.waiting_for_link)
-async def course_link(message: Message, state: FSMContext):
-    await state.update_data(link=message.text)
-    categories = await db.get_categories()
-    if not categories:
-        return await message.answer("Нет категорий. Сначала создай категорию.")
-    text = "Выбери категорию:"
-    buttons = [
-        [InlineKeyboardButton(text=c["title"], callback_data=f"set_course_category:{c['id']}")]
-        for c in categories
-    ]
-    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await state.set_state(AddCourse.waiting_for_category)
-    await message.answer(text, reply_markup=markup)
-
-
-@dp.callback_query(F.data.startswith("set_course_category:"))
-async def course_set_category(cb: CallbackQuery, state: FSMContext):
-    cat_id = int(cb.data.split(":")[1])
-    data = await state.get_data()
-    await db.add_course(
-        title=data["title"],
-        description=data["description"],
-        price=data["price"],
-        link=data["link"],
-        category_id=cat_id,
+    await message.answer(
+        f"✅ Оплата прошла успешно!\n\nВот твоя ссылка: {course['link']}"
     )
-    await state.clear()
-    await cb.message.answer("Курс добавлен!")
-    await cb.answer()
 
 
-# --- Отладка ---
-@dp.callback_query()
-async def debug_callback(cb: CallbackQuery):
-    logging.info(f"DEBUG CALLBACK DATA: {cb.data}")
-    await cb.answer()
-
-
-# --- Run ---
+# --- Запуск бота ---
 async def main():
     await db.init_db()
     await dp.start_polling(bot)
@@ -221,6 +225,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
