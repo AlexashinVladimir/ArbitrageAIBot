@@ -1,10 +1,19 @@
 import asyncio
 import logging
+import os
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery
+from aiogram.types import (
+    Message, 
+    CallbackQuery, 
+    LabeledPrice, 
+    PreCheckoutQuery, 
+    InlineKeyboardButton, 
+    InlineKeyboardMarkup
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.enums import ParseMode
+from dotenv import load_dotenv
 
 import keyboards as kb
 import db
@@ -12,14 +21,20 @@ import db
 
 logging.basicConfig(level=logging.INFO)
 
-BOT_TOKEN = "ТОКЕН_ТВОЕГО_БОТА"
-PAYMENT_PROVIDER_TOKEN = "381764678:TEST:1122334455667788"  # тестовый ЮKassa
+# Загружаем .env
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN не найден в .env")
 
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 
 
-# --- FSM для добавления категорий и курсов ---
+# --- FSM ---
 class AddCategory(StatesGroup):
     waiting_for_title = State()
 
@@ -32,12 +47,13 @@ class AddCourse(StatesGroup):
     waiting_for_category = State()
 
 
-# --- Старт ---
+# --- Команда старт ---
 @dp.message(F.text == "/start")
 async def cmd_start(message: Message):
-    is_admin = message.from_user.id in [123456789]  # впиши свой Telegram ID
+    is_admin = message.from_user.id == ADMIN_ID
     await message.answer(
-        "Добро пожаловать. Да, я бот, и у меня циничная философия. Но если ты тут — значит ищешь рост.",
+        "Добро пожаловать. Я твой слегка циничный наставник. "
+        "Нажми кнопку и выбери свой путь.",
         reply_markup=kb.main_menu(admin=is_admin)
     )
 
@@ -103,13 +119,13 @@ async def got_payment(message: Message):
     course_id = int(payload.replace("course_", ""))
     course = await db.get_course(course_id)
     if course:
-        await message.answer(f"Оплата прошла успешно! Вот твоя ссылка: {course['link']}")
+        await message.answer(f"✅ Оплата прошла успешно!\n\nВот твоя ссылка: {course['link']}")
 
 
-# --- Админ-панель ---
+# --- Админка ---
 @dp.message(F.text == "⚙️ Админ-панель")
 async def admin_panel(message: Message):
-    if message.from_user.id not in [123456789]:
+    if message.from_user.id != ADMIN_ID:
         return await message.answer("Ты не админ.")
     await message.answer("Что будем делать?", reply_markup=kb.admin_panel())
 
@@ -190,14 +206,14 @@ async def course_set_category(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
 
 
-# --- Debug handler ---
+# --- Отладка ---
 @dp.callback_query()
 async def debug_callback(cb: CallbackQuery):
-    print("DEBUG CALLBACK DATA:", cb.data)
+    logging.info(f"DEBUG CALLBACK DATA: {cb.data}")
     await cb.answer()
 
 
-# --- Run bot ---
+# --- Run ---
 async def main():
     await db.init_db()
     await dp.start_polling(bot)
@@ -205,4 +221,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
 
