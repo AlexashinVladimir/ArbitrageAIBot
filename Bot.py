@@ -4,6 +4,8 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
 from aiogram.types import Message, CallbackQuery, LabeledPrice
 from aiogram.fsm.context import FSMContext
+from dotenv import load_dotenv
+import os
 
 import keyboards as kb
 import db
@@ -154,6 +156,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
