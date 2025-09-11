@@ -1,69 +1,105 @@
-from aiogram import types
+# keyboards.py
+from aiogram.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 
 
+# Главное меню (показывает кнопку "Админ" только админу)
 def main_menu(admin: bool = False):
     buttons = [
-        [types.KeyboardButton(text="📚 Курсы")],
-        [types.KeyboardButton(text="ℹ️ О боте")]
+        [KeyboardButton(text="📚 Курсы")],
+        [KeyboardButton(text="ℹ️ О боте")],
     ]
     if admin:
-        buttons.append([types.KeyboardButton(text="👑 Админ-панель")])
-    return types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
-
-
-def categories_inline(categories):
-    buttons = [
-        [types.InlineKeyboardButton(text=c["title"], callback_data=f"category:{c['id']}")]
-        for c in categories
-    ]
-    return types.InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-def course_inline(course):
-    return types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [types.InlineKeyboardButton(
-                text=f"💳 Оплатить — {course['price']} ₽",
-                callback_data=f"buy:{course['id']}"
-            )]
-        ]
+        buttons.append([KeyboardButton(text="⚙️ Админ")])
+    return ReplyKeyboardMarkup(
+        keyboard=buttons,
+        resize_keyboard=True
     )
 
 
-# --- ADMIN ---
-admin_menu = types.ReplyKeyboardMarkup(
+# Инлайн-клавиатура со списком категорий
+def categories_inline(categories):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=c["title"], callback_data=f"category_{c['id']}")]
+            for c in categories
+        ]
+    )
+    return keyboard
+
+
+# Инлайн-клавиатура для конкретного курса (с оплатой)
+def course_inline(course):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"💳 Оплатить {course['price']} ₽",
+                    callback_data=f"buy_{course['id']}"
+                )
+            ]
+        ]
+    )
+    return keyboard
+
+
+# Главное меню админа
+admin_menu = ReplyKeyboardMarkup(
     keyboard=[
-        [types.KeyboardButton(text="Управление курсами")],
-        [types.KeyboardButton(text="Управление категориями")],
-        [types.KeyboardButton(text="❌ Отмена")]
+        [KeyboardButton(text="📂 Управление курсами")],
+        [KeyboardButton(text="➕ Добавить курс")],
+        [KeyboardButton(text="📂 Управление категориями")],
+        [KeyboardButton(text="➕ Добавить категорию")],
+        [KeyboardButton(text="❌ Отмена")],
     ],
     resize_keyboard=True
 )
 
 
+# Инлайн-список категорий для админа
 def categories_admin_inline(categories):
-    buttons = [
-        [types.InlineKeyboardButton(text=f"❌ {c['title']}", callback_data=f"delcat:{c['id']}")]
-        for c in categories
-    ]
-    buttons.append([types.InlineKeyboardButton(text="➕ Добавить категорию", callback_data="admin_add_category")])
-    return types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=c["title"], callback_data=f"admin_category_{c['id']}")]
+            for c in categories
+        ]
+    )
+    return keyboard
 
 
+# Инлайн-список курсов для админа
 def admin_courses_inline(courses):
-    buttons = [
-        [types.InlineKeyboardButton(text=f"❌ {c['title']}", callback_data=f"delcourse:{c['id']}")]
-        for c in courses
-    ]
-    buttons.append([types.InlineKeyboardButton(text="➕ Добавить курс", callback_data="admin_add_course")])
-    return types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=c["title"], callback_data=f"admin_course_{c['id']}")]
+            for c in courses
+        ]
+    )
+    return keyboard
 
 
-# Cancel keyboard
-cancel_kb = types.ReplyKeyboardMarkup(
-    keyboard=[[types.KeyboardButton(text="❌ Отмена")]],
+# Инлайн-меню управления курсом (редактировать/удалить)
+def course_admin_inline(course_id: int):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✏ Редактировать", callback_data=f"edit_course_{course_id}")],
+            [InlineKeyboardButton(text="❌ Удалить", callback_data=f"delete_course_{course_id}")],
+        ]
+    )
+    return keyboard
+
+
+# Клавиатура "Отмена"
+cancel_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="❌ Отмена")]],
     resize_keyboard=True
 )
+
+
 
 
 
