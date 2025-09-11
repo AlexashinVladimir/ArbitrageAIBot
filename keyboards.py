@@ -26,100 +26,51 @@ def admin_menu():
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 
-def back_to_admin_kb():
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
-
-
 def cancel_kb():
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="❌ Отмена")]], resize_keyboard=True)
 
 
-def categories_inline(categories):
-    buttons = [[InlineKeyboardButton(text=c["title"], callback_data=f"category:{c['id']}")] for c in categories]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+def back_kb():
+    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
 
 
-def courses_inline(courses):
-    buttons = [
-        [InlineKeyboardButton(text=f"💳 Купить ({int(c.get('price',0))} ₽)", callback_data=f"buy:{c['id']}")]
-        for c in courses
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-def edit_delete_inline(entity: str, items):
+def categories_inline(categories: list, for_add: bool = False):
     """
-    entity: 'category' or 'course'
-    items: list of dicts with id/title
+    categories: list of dicts {"id":..., "title":...}
+    if for_add==True -> callback_data = catadd:{id}, else catview:{id}
     """
     buttons = []
-    for it in items:
-        title = it.get("title") or it.get("name") or it.get("title") or ""
-        buttons.append([
-            InlineKeyboardButton(text=f"✏️ {title}", callback_data=f"edit_{entity}:{it['id']}"),
-            InlineKeyboardButton(text=f"🗑 {title}", callback_data=f"delete_{entity}:{it['id']}")
-        ])
-    # add back
+    for c in categories:
+        cb = f"catadd:{c['id']}" if for_add else f"catview:{c['id']}"
+        buttons.append([InlineKeyboardButton(text=c["title"], callback_data=cb)])
+    # add back button
     buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-
-
-# Главное меню
-def main_menu(is_admin=False):
-    kb = [
-        [KeyboardButton(text="📂 Категории")],
-        [KeyboardButton(text="ℹ️ О боте")]
-    ]
-    if is_admin:
-        kb.append([KeyboardButton(text="⚙️ Админ панель")])
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-# Админ панель
-def admin_panel():
-    kb = [
-        [KeyboardButton(text="📁 Управление категориями")],
-        [KeyboardButton(text="🎓 Управление курсами")],
-        [KeyboardButton(text="⬅️ Назад")]
-    ]
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-# Инлайн-кнопки для категорий
-def categories_kb(categories, for_add=False):
-    kb = []
-    for c in categories:
-        if for_add:
-            kb.append([InlineKeyboardButton(text=c["name"], callback_data=f"catadd:{c['id']}")])
-        else:
-            kb.append([InlineKeyboardButton(text=c["name"], callback_data=f"catview:{c['id']}")])
-    kb.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back")])
-    return InlineKeyboardMarkup(inline_keyboard=kb)
-
-
-# Инлайн-кнопки для курсов (в админке)
-def courses_admin_kb(courses):
-    kb = []
+def courses_inline(courses: list):
+    buttons = []
     for c in courses:
-        kb.append([
-            InlineKeyboardButton(text=f"✏️ {c['title']}", callback_data=f"edit_course:{c['id']}"),
-            InlineKeyboardButton(text="❌", callback_data=f"del_course:{c['id']}")
+        buttons.append([InlineKeyboardButton(text=f"💳 Купить ({int(c.get('price',0))} ₽)", callback_data=f"buy:{c['id']}")])
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_categories")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def edit_delete_inline(entity: str, items: list):
+    """
+    entity: 'category' or 'course'
+    items: list of dicts with keys id and title (or title fallback)
+    returns InlineKeyboardMarkup where each row has Edit and Delete, plus Back row
+    """
+    buttons = []
+    for it in items:
+        title = it.get("title") or it.get("name") or ""
+        buttons.append([
+            InlineKeyboardButton(text=f"✏️ {title}", callback_data=f"edit_{entity}:{it['id']}"),
+            InlineKeyboardButton(text=f"🗑 {title}", callback_data=f"delete_{entity}:{it['id']}")
         ])
-    kb.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back")])
-    return InlineKeyboardMarkup(inline_keyboard=kb)
-
-
-# Кнопка отмены (для FSM)
-def cancel_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="❌ Отмена")]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 
