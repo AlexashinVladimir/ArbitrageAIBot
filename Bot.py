@@ -10,14 +10,14 @@ from aiogram.types import LabeledPrice
 
 import db
 import keyboards as kb
-from states import AddCategory, AddCourse, EditCourse
+from states import AddCategory, AddCourse
 
 # ------------------------------
 # CONFIG
 # ------------------------------
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))  # укажи свой Telegram ID
-PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")  # токен для оплаты
+ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
+PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")  # тестовый токен от @BotFather
 
 logging.basicConfig(level=logging.INFO)
 
@@ -59,17 +59,13 @@ async def show_courses(callback: types.CallbackQuery):
         await callback.message.answer("Курсов в этой категории нет. Разочарование — тоже опыт.")
     else:
         for course in courses:
-            if not isinstance(course, dict):
-                course = dict(course)
+            course = dict(course)
             text = (
                 f"<b>{course['title']}</b>\n\n"
                 f"{course.get('description', '')}\n\n"
                 f"Цена: {course.get('price', 0)} ₽"
             )
-            await callback.message.answer(
-                text,
-                reply_markup=kb.course_inline(course)
-            )
+            await callback.message.answer(text, reply_markup=kb.course_inline(course))
     await callback.answer()
 
 
@@ -93,7 +89,7 @@ async def process_buy(callback: types.CallbackQuery):
         payload=f"course_{course_id}",
         provider_token=PAYMENT_PROVIDER_TOKEN,
         currency="rub",
-        prices=[LabeledPrice(label=course["title"], amount=course["price"] * 100)],  # рубли → копейки
+        prices=[LabeledPrice(label=f"{course['title']}", amount=course["price"] * 100)],  # рубли→копейки
     )
     await callback.answer()
 
@@ -157,14 +153,14 @@ async def admin_add_category_cb(callback: types.CallbackQuery, state: FSMContext
 async def admin_add_category_title(message: types.Message, state: FSMContext):
     await db.add_category(message.text)
     await state.clear()
-    await message.answer("Категория добавлена. Ещё один кирпич в стену порядка.", reply_markup=kb.admin_menu)
+    await message.answer("Категория добавлена.", reply_markup=kb.admin_menu)
 
 
 @dp.callback_query(F.data.startswith("delcat:"))
 async def admin_delete_category(callback: types.CallbackQuery):
     cat_id = int(callback.data.split(":")[1])
     await db.delete_category(cat_id)
-    await callback.message.answer("Категория удалена. Всё тлен.")
+    await callback.message.answer("Категория удалена.")
     await callback.answer()
 
 
@@ -175,7 +171,7 @@ async def admin_delete_category(callback: types.CallbackQuery):
 async def admin_courses(message: types.Message):
     courses = await db.get_courses()
     if not courses:
-        await message.answer("Курсов нет. Пустота — твой единственный учитель.")
+        await message.answer("Курсов нет.")
     else:
         await message.answer("Курсы:", reply_markup=kb.admin_courses_inline(courses))
 
@@ -187,9 +183,7 @@ async def admin_add_course_cb(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("Сначала добавь категорию.")
         return
 
-    # сохраняем категории в state
     await state.update_data(categories=[dict(c) for c in categories])
-
     buttons = [[types.KeyboardButton(c["title"])] for c in categories]
     markup = types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
@@ -229,7 +223,7 @@ async def admin_add_course_description(message: types.Message, state: FSMContext
 @dp.message(AddCourse.waiting_for_price)
 async def admin_add_course_price(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
-        await message.answer("Цена должна быть числом. Не усложняй.")
+        await message.answer("Цена должна быть числом.")
         return
 
     await state.update_data(price=int(message.text))
@@ -248,7 +242,7 @@ async def admin_add_course_link(message: types.Message, state: FSMContext):
         link=message.text
     )
     await state.clear()
-    await message.answer("Курс добавлен. Очередная возможность для глупцов просветиться.", reply_markup=kb.admin_menu)
+    await message.answer("Курс добавлен.", reply_markup=kb.admin_menu)
 
 
 # ------------------------------
@@ -261,7 +255,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 
 
 
