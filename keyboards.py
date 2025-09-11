@@ -1,4 +1,10 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+# keyboards.py
+from aiogram.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 
 
 def main_menu(is_admin: bool = False):
@@ -13,58 +19,49 @@ def main_menu(is_admin: bool = False):
 
 def admin_menu():
     kb = [
-        [KeyboardButton(text="➕ Добавить категорию")],
-        [KeyboardButton(text="📂 Управление категориями")],
-        [KeyboardButton(text="➕ Добавить курс")],
-        [KeyboardButton(text="📘 Управление курсами")],
-        [KeyboardButton(text="⬅️ Назад")]
+        [KeyboardButton(text="➕ Добавить категорию"), KeyboardButton(text="📂 Управление категориями")],
+        [KeyboardButton(text="➕ Добавить курс"), KeyboardButton(text="📘 Управление курсами")],
+        [KeyboardButton(text="⬅️ Назад"), KeyboardButton(text="❌ Отмена")]
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 
-def cancel_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="❌ Отмена")]],
-        resize_keyboard=True
-    )
-
-
 def back_to_admin_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="⬅️ Назад")]],
-        resize_keyboard=True
-    )
+    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
 
 
-def categories_inline(categories: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=c["title"], callback_data=f"category:{c['id']}")]
-            for c in categories
-        ]
-    )
+def cancel_kb():
+    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="❌ Отмена")]], resize_keyboard=True)
 
 
-def courses_inline(courses: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=f"💳 Купить ({c['price']} ₽)", callback_data=f"buy:{c['id']}")]
-            for c in courses
-        ]
-    )
+def categories_inline(categories):
+    buttons = [[InlineKeyboardButton(text=c["title"], callback_data=f"category:{c['id']}")] for c in categories]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def edit_delete_inline(entity: str, items: list):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text=f"✏️ {i['title']}", callback_data=f"edit_{entity}:{i['id']}"),
-                InlineKeyboardButton(text=f"🗑 {i['title']}", callback_data=f"delete_{entity}:{i['id']}")
-            ]
-            for i in items
-        ] + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin")]]
-    )
+def courses_inline(courses):
+    buttons = [
+        [InlineKeyboardButton(text=f"💳 Купить ({int(c.get('price',0))} ₽)", callback_data=f"buy:{c['id']}")]
+        for c in courses
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
+def edit_delete_inline(entity: str, items):
+    """
+    entity: 'category' or 'course'
+    items: list of dicts with id/title
+    """
+    buttons = []
+    for it in items:
+        title = it.get("title") or it.get("name") or it.get("title") or ""
+        buttons.append([
+            InlineKeyboardButton(text=f"✏️ {title}", callback_data=f"edit_{entity}:{it['id']}"),
+            InlineKeyboardButton(text=f"🗑 {title}", callback_data=f"delete_{entity}:{it['id']}")
+        ])
+    # add back
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 
