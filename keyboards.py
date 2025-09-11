@@ -26,6 +26,11 @@ admin_main_kb = ReplyKeyboardMarkup(
 )
 
 
+# Функция для совместимости (выбор клавиатуры в зависимости от роли)
+def main_menu(admin: bool = False):
+    return admin_main_kb if admin else main_kb
+
+
 # Админ панель
 admin_panel_kb = ReplyKeyboardMarkup(
     keyboard=[
@@ -74,7 +79,6 @@ def course_manage_kb(course_id: int):
             [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete:{course_id}")],
         ]
     )
-
 
 
 
