@@ -1,5 +1,4 @@
 import aiosqlite
-import asyncio
 
 DB_NAME = "arbitrage.db"
 
@@ -85,12 +84,6 @@ async def update_course(course_id: int, title: str, description: str, price: int
         WHERE id = ?
         """, (title, description, price, link, course_id))
         await db.commit()
-
-
-# Если запускаем напрямую → создаём базу
-if __name__ == "__main__":
-    asyncio.run(init_db())
-    print("✅ База данных и таблицы успешно созданы")
 
 
 
