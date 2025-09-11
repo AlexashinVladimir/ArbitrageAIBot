@@ -198,9 +198,12 @@ async def cancel_any(message: Message, state: FSMContext):
 
 # --- Запуск ---
 async def main():
+    await db.init_db()   # создаём таблицы
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
