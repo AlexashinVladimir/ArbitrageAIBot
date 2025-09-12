@@ -1,4 +1,5 @@
 # db.py
+# Работа с SQLite через aiosqlite. Все функции возвращают словари (id/title/..)
 import aiosqlite
 import os
 from dotenv import load_dotenv
@@ -8,7 +9,11 @@ DB_PATH = os.getenv("DB_PATH", "database.db")
 
 
 async def create_tables():
+    """Создать таблицы, если их нет."""
     async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+        PRAGMA foreign_keys = ON;
+        """)
         await db.execute("""
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,36 +34,36 @@ async def create_tables():
         await db.commit()
 
 
-# ---------- Categories ----------
-async def add_category(title: str):
+# ---------------- Categories ----------------
+async def add_category(title: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("INSERT OR IGNORE INTO categories (title) VALUES (?)", (title,))
         await db.commit()
 
 
-async def get_categories():
+async def get_categories() -> list:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute("SELECT id, title FROM categories ORDER BY id")
         rows = await cur.fetchall()
         return [{"id": r[0], "title": r[1]} for r in rows]
 
 
-async def update_category(category_id: int, new_title: str):
+async def update_category(category_id: int, new_title: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE categories SET title = ? WHERE id = ?", (new_title, category_id))
         await db.commit()
 
 
-async def delete_category(category_id: int):
+async def delete_category(category_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
+        # удаляем категорию; курсы остаются, category_id станет NULL
         await db.execute("DELETE FROM categories WHERE id = ?", (category_id,))
         await db.execute("UPDATE courses SET category_id = NULL WHERE category_id = ?", (category_id,))
         await db.commit()
 
 
-# ---------- Courses ----------
-# signature: add_course(category_id, title, description, price, link)
-async def add_course(category_id: int, title: str, description: str, price: int, link: str):
+# ---------------- Courses ----------------
+async def add_course(category_id: int, title: str, description: str, price: int, link: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             "INSERT INTO courses (category_id, title, description, price, link) VALUES (?, ?, ?, ?, ?)",
@@ -67,20 +72,20 @@ async def add_course(category_id: int, title: str, description: str, price: int,
         await db.commit()
 
 
-async def get_courses_by_category(category_id: int):
+async def get_courses_by_category(category_id: int) -> list:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
-            "SELECT id, title, description, price, link FROM courses WHERE category_id = ? ORDER BY id",
+            "SELECT id, title, description, price, link, category_id FROM courses WHERE category_id = ? ORDER BY id",
             (category_id,)
         )
         rows = await cur.fetchall()
         return [
-            {"id": r[0], "title": r[1], "description": r[2], "price": r[3], "link": r[4]}
+            {"id": r[0], "title": r[1], "description": r[2], "price": r[3], "link": r[4], "category_id": r[5]}
             for r in rows
         ]
 
 
-async def get_course(course_id: int):
+async def get_course(course_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
             "SELECT id, category_id, title, description, price, link FROM courses WHERE id = ?",
@@ -92,7 +97,7 @@ async def get_course(course_id: int):
         return {"id": r[0], "category_id": r[1], "title": r[2], "description": r[3], "price": r[4], "link": r[5]}
 
 
-async def get_all_courses():
+async def get_all_courses() -> list:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute("SELECT id, category_id, title, description, price, link FROM courses ORDER BY id")
         rows = await cur.fetchall()
@@ -102,7 +107,7 @@ async def get_all_courses():
         ]
 
 
-async def update_course(course_id: int, title: str, description: str, price: int, link: str, category_id: int = None):
+async def update_course(course_id: int, title: str, description: str, price: int, link: str, category_id: int | None = None) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         if category_id is None:
             await db.execute(
@@ -117,7 +122,7 @@ async def update_course(course_id: int, title: str, description: str, price: int
         await db.commit()
 
 
-async def update_course_field(course_id: int, field: str, value):
+async def update_course_field(course_id: int, field: str, value) -> None:
     if field not in ("title", "description", "price", "link", "category_id"):
         raise ValueError("Unsupported field")
     async with aiosqlite.connect(DB_PATH) as db:
@@ -125,15 +130,16 @@ async def update_course_field(course_id: int, field: str, value):
         await db.commit()
 
 
-async def delete_course(course_id: int):
+async def delete_course(course_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM courses WHERE id = ?", (course_id,))
         await db.commit()
 
 
-# If run directly — create tables
+# If run directly, create tables
 if __name__ == "__main__":
     import asyncio
     asyncio.run(create_tables())
-    print("DB ready.")
+    print("DB: tables ensured.")
+
 
